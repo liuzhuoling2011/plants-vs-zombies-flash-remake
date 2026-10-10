@@ -660,19 +660,22 @@ function draw() {
   }
 
   // background — pan shows left house; bg is 945 wide, board shows ~540 from offset
-  const bgKey = state.level <= 10 ? (state.sodRows < 5 ? 'bg1u' : 'bg1') : 'bg2';
+  const bgKey = state.level <= 10 ? 'bg1' : 'bg2';
   const bg = assets.img[bgKey];
   if (bg) {
-    // Original Flash pans; show left portion including house
-    const sx = 0;
-    ctx.drawImage(bg, sx, 0, C.BOARD_W, C.BOARD_H, 0, 0, C.BOARD_W, C.BOARD_H);
+    // Flash bg is 945×405; show left house + lawn (offset 0) matching BOARD 540
+    ctx.drawImage(bg, 0, 0, C.BOARD_W, C.BOARD_H, 0, 0, C.BOARD_W, C.BOARD_H);
   } else {
     ctx.fillStyle = '#5a8'; ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
   }
-  if (state.sodRows === 1 && assets.img.sod1) {
-    ctx.drawImage(assets.img.sod1, 25, C.gridToPixelY(2) - 10, 480, 80);
-  } else if (state.sodRows === 3 && assets.img.sod3) {
-    ctx.drawImage(assets.img.sod3, 25, C.gridToPixelY(1) - 10, 480, 210);
+  // Dim locked rows for early sod-unlock levels (SWF sod roll)
+  if (state.sodRows < 5) {
+    const allowed = new Set(rowsAllowed());
+    for (let r = 0; r < C.GRID_H; r++) {
+      if (allowed.has(r)) continue;
+      ctx.fillStyle = 'rgba(40,30,10,0.45)';
+      ctx.fillRect(C.LAWN_XMIN, C.gridToPixelY(r), C.LAWN_XMAX - C.LAWN_XMIN, C.CELL_H);
+    }
   }
 
   // mowers
