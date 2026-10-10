@@ -949,6 +949,54 @@ function draw() {
     }
   }
 
+  // Seed bank + shovel UNDER entities (Board.draw: mSeedBank.Draw then mRenderManager)
+  // SeedBank.as mHeight=78; LAWN_YMIN=77 — top-row zombie heads must paint over the bank
+  // seed bank HUD
+  drawImg('seedbank', 0, 0, 401, 78); // SeedBank mWidth=401, mHeight=78
+  // sun counter area
+  if (fontLib.fonts.FONT_CONTINUUMBOLD14 || fontLib.fonts.FONT_BRIANNETOD16) {
+    const fk = fontLib.fonts.FONT_CONTINUUMBOLD14 ? 'FONT_CONTINUUMBOLD14' : 'FONT_BRIANNETOD16';
+    fontLib.draw(ctx, fk, String(state.sun), 40, 72, 'center');
+  } else {
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(state.sun), 40, 72);
+  }
+
+  for (let i = 0; i < state.packets.length; i++) {
+    const p = state.packets[i];
+    const r = packetRect(i);
+    drawImg('seedpacket', r.x, r.y, r.w, r.h);
+    const pk = 'p_' + C.SEED_IMG[p.type];
+    if (assets.img[pk]) {
+      ctx.drawImage(assets.img[pk], r.x + 8, r.y + 10, 34, 34);
+    }
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    const cost = C.SEED_COST[p.type];
+    ctx.strokeText(String(cost), r.x + 25, r.y + 62);
+    ctx.fillText(String(cost), r.x + 25, r.y + 62);
+    if (!p.active) {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      const frac = p.refresh / p.refreshMax;
+      ctx.fillRect(r.x, r.y, r.w, r.h * frac);
+    }
+    if (state.sun < cost) {
+      ctx.fillStyle = 'rgba(80,0,0,0.35)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+    }
+    if (state.cursor?.type === 'seed' && state.cursor.index === i) {
+      ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.strokeRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+    }
+  }
+
+  drawImg('shovelbank', 402, 0);
+  drawImg('shovel', 410, 8, 48, 48);
+  if (state.cursor?.type === 'shovel') {
+    ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.strokeRect(402, 0, 63, 65);
+  }
+
   // mowers — LawnMower.as: draw at (mPosX+4, mPosY); shadow at (mPosX-5, mPosY+30)
   for (const m of state.mowers) {
     if (m.dead) continue;
@@ -966,8 +1014,8 @@ function draw() {
     }
   }
 
-  // plants — reanim at GridToPixel (CPlant.Draw); IMAGE_PLANTSHADOW under feet
-  for (const p of state.plants) {
+  // plants — reanim at GridToPixel; draw low rows first (Flash RENDER_LAYER_PLANT + row)
+  for (const p of [...state.plants].sort((a, b) => a.row - b.row)) {
     const sh = assets.img.plantshadow;
     if (sh) {
       ctx.globalAlpha = 0.9;
@@ -992,8 +1040,8 @@ function draw() {
     }
   }
 
-  // zombies — draw at GetPosYBasedOnRow (= GridY-30); shadow under feet (~ty 75)
-  for (const z of state.zombies) {
+  // zombies — GetPosYBasedOnRow; draw by row so lower lanes cover upper (RENDER_LAYER_ZOMBIE + row)
+  for (const z of [...state.zombies].sort((a, b) => a.row - b.row || a.x - b.x)) {
     if (z.dead) continue;
     const zy = z.y;
     const sh = assets.img.plantshadow;
@@ -1050,52 +1098,6 @@ function draw() {
   // particles / charred (above entities)
   for (const fx of state.fx) fx.draw(ctx);
   for (const ch of state.charred) ch.draw(ctx, ch.x, ch.y);
-
-  // seed bank HUD
-  drawImg('seedbank', 0, 0);
-  // sun counter area
-  if (fontLib.fonts.FONT_CONTINUUMBOLD14 || fontLib.fonts.FONT_BRIANNETOD16) {
-    const fk = fontLib.fonts.FONT_CONTINUUMBOLD14 ? 'FONT_CONTINUUMBOLD14' : 'FONT_BRIANNETOD16';
-    fontLib.draw(ctx, fk, String(state.sun), 40, 72, 'center');
-  } else {
-    ctx.fillStyle = '#222';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(String(state.sun), 40, 72);
-  }
-
-  for (let i = 0; i < state.packets.length; i++) {
-    const p = state.packets[i];
-    const r = packetRect(i);
-    drawImg('seedpacket', r.x, r.y, r.w, r.h);
-    const pk = 'p_' + C.SEED_IMG[p.type];
-    if (assets.img[pk]) {
-      ctx.drawImage(assets.img[pk], r.x + 8, r.y + 10, 34, 34);
-    }
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-    const cost = C.SEED_COST[p.type];
-    ctx.strokeText(String(cost), r.x + 25, r.y + 62);
-    ctx.fillText(String(cost), r.x + 25, r.y + 62);
-    if (!p.active) {
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
-      const frac = p.refresh / p.refreshMax;
-      ctx.fillRect(r.x, r.y, r.w, r.h * frac);
-    }
-    if (state.sun < cost) {
-      ctx.fillStyle = 'rgba(80,0,0,0.35)';
-      ctx.fillRect(r.x, r.y, r.w, r.h);
-    }
-    if (state.cursor?.type === 'seed' && state.cursor.index === i) {
-      ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.strokeRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
-    }
-  }
-
-  drawImg('shovelbank', 402, 0);
-  drawImg('shovel', 410, 8, 48, 48);
-  if (state.cursor?.type === 'shovel') {
-    ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.strokeRect(402, 0, 63, 65);
-  }
 
   // progress / wave
   ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';

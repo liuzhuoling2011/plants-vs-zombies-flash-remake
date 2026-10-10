@@ -2,6 +2,8 @@
 export const BOARD_W = 540, BOARD_H = 405;
 // PVZApp.BOARD_OFFSET — bg drawn at -148 so lawn cells match grass
 export const BOARD_OFFSET = 148;
+// SeedBank.as mHeight — sits at y=0; lawn starts LAWN_YMIN=77 (bank overlaps top of row 0)
+export const SEED_BANK_H = 78;
 export const TICK_HZ = 100; // SECONDS_PER_UPDATE = 0.01
 export const LAWN_XMIN = 25, LAWN_XMAX = 513, LAWN_YMIN = 77, LAWN_YMAX = 385;
 export const GRID_W = 9, GRID_H = 5;
