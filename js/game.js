@@ -51,6 +51,9 @@ async function loadAll() {
     flagflag: 'assets/ui/flagmeterflag.png',
     flaghead: 'assets/ui/flagmeterhead.png',
     lawnmower: 'assets/ui/lawnmower.png',
+    plantshadow: 'assets/ui/plantshadow.png',
+    plantshadow2: 'assets/ui/plantshadow2.png',
+    pea_shadows: 'assets/ui/pea_shadows.png',
     logo: 'assets/ui/pvz_logo.png',
     pea: 'assets/fx/pea.png',
     snowpea: 'assets/fx/snowpea.png',
@@ -145,6 +148,14 @@ const state = {
   readyFlash: 0,
 };
 
+function zombieLaneY(row) {
+  // Zombie.as GetPosYBasedOnRow → GridToPixelY(row) - 30
+  return C.gridToPixelY(row) + C.ZOMBIE_Y_OFFSET;
+}
+function mowerLaneY(row) {
+  // LawnMower.as ready: GetPosYBasedOnRow(...) + 10
+  return C.gridToPixelY(row) + C.MOWER_Y_OFFSET;
+}
 function rowsAllowed() {
   // Map sodRows to which lawn rows (0..4) are plantable
   const n = state.sodRows;
@@ -187,7 +198,7 @@ function initLevel(level) {
     });
   }
   state.mowers = rowsAllowed().map((r) => ({
-    row: r, x: -20, triggered: false, dead: false,
+    row: r, x: C.MOWER_X, y: mowerLaneY(r), dead: false, active: false, speed: 0,
     reanim: Ent.createMowerReanim(reanimLib),
   }));
 
@@ -244,7 +255,7 @@ function finishCutsceneToPlay() {
   state.dave = null;
   state.sodRows = C.sodRowsForLevel(state.level);
   state.mowers = rowsAllowed().map((r) => ({
-    row: r, x: 10, dead: false, active: false, speed: 0,
+    row: r, x: C.MOWER_X, y: mowerLaneY(r), dead: false, active: false, speed: 0,
     reanim: Ent.createMowerReanim(reanimLib),
   }));
   state.scene = 'playing';
@@ -305,7 +316,7 @@ function spawnZombie(type, row) {
   const z = {
     type, row,
     x: C.BOARD_W - 13 + Math.random() * 27,
-    y: C.gridToPixelY(row),
+    y: zombieLaneY(row),
     vel, baseVel: vel,
     hp: 270, maxHp: 270, helm, shield,
     eating: false, dead: false, chilled: 0, age: 0, bob: Math.random() * Math.PI * 2,
@@ -422,7 +433,7 @@ function updatePlaying(dtTicks) {
     for (const p of state.packets) {
       if (!p.active) {
         p.refresh--;
-        if (p.refresh <= 0) { p.active = true; p.refresh = 0; }
+        if (p && p.refresh <= 0) { p.active = true; p.refresh = 0; }
       }
     }
 
@@ -544,9 +555,21 @@ function updatePlaying(dtTicks) {
       if (z.chilled > 0) z.chilled--;
       const plant = state.plants.find((p) => !p.dead && p.row === z.row && (z.x + Ent.ZOMBIE_HIT.x) < p.x + 48 && (z.x + Ent.ZOMBIE_HIT.x + Ent.ZOMBIE_HIT.w) > p.x + 6);
       if (z._dying) {
+        z._deathAge = (z._deathAge || 0) + 1;
         if (z.reanim) z.reanim.update(1);
+        // Fade after death clip finishes; hard-cap so no sticky ghosts
+        if (z._deathDone || z._deathAge > 220) {
+          z._fade = (z._fade == null ? 1 : z._fade) - 0.08;
+          if (z.reanim) z.reanim.alphaMul = Math.max(0, z._fade);
+          if (z._fade <= 0 || z._deathAge > 260) {
+            z.dead = true;
+            z.reanim = null; // drop reanim so nothing redraws
+          }
+        }
         continue;
       }
+      // Keep lane Y locked to row (SWF -30)
+      z.y = zombieLaneY(z.row);
       Ent.updatePolevaulter(z, state.plants);
       Ent.updateNewspaper(z);
       if (z.phase === Ent.PHASE.POLE_IN || z.phase === Ent.PHASE.POLE_PRE && z.type === C.ZOMBIE.POLE) {
@@ -602,16 +625,20 @@ function updatePlaying(dtTicks) {
     // lawn mowers
     for (const m of state.mowers) {
       if (m.dead) continue;
+      if (m.reanim) m.reanim.update(1);
+      // Ready Y = GridY+10; triggered Y = GridY+16 (LawnMower.as)
+      m.y = C.gridToPixelY(m.row) + (m.active ? 16 : C.MOWER_Y_OFFSET);
       if (!m.active) {
-        const hit = state.zombies.find((z) => !z.dead && z.row === m.row && z.x < 40);
-        if (hit) { m.active = true; m.speed = 4; playSfx('siren', 0.3); }
+        const hit = state.zombies.find((z) => !z.dead && !z._dying && z.row === m.row && z.x < 40);
+        if (hit) { m.active = true; m.speed = 4; if (m.reanim) m.reanim.animRate = 70; playSfx('siren', 0.3); }
       } else {
         m.x += m.speed;
         for (const z of state.zombies) {
-          if (!z.dead && z.row === m.row && z.x < m.x + 40 && z.x > m.x - 10) {
+          if (!z.dead && z.row === m.row && z.x < m.x + 50 && z.x > m.x - 10) {
             spawnFx('PARTICLE_MOWERCLOUD', z.x + 20, z.y + 40);
             spawnFx('PARTICLE_MOWEREDZOMBIEHEAD', z.x + 20, z.y + 20);
             z.dead = true;
+            z.reanim = null;
           }
         }
         if (m.x > C.BOARD_W + 40) m.dead = true;
@@ -637,7 +664,13 @@ function updatePlaying(dtTicks) {
     for (const fx of state.fx) fx.update(1);
     state.fx = state.fx.filter((f) => !f.dead);
     for (const ch of state.charred) ch.update(1);
-    state.charred = state.charred.filter((c) => c.animTime < 1 || !c.mIsDead);
+    for (const ch of state.charred) {
+      ch._age = (ch._age || 0) + 1;
+      if (ch.animTime >= 1 || ch._age > 180) ch._gone = true;
+    }
+    state.charred = state.charred.filter((c) => !c._gone);
+    // Cap live FX so splats cannot pile into ghosts
+    if (state.fx.length > 40) state.fx.splice(0, state.fx.length - 40);
 
     // win check
     if (state.wave >= state.numWaves && state.waveCD < 0 && state.zombies.length === 0) {
@@ -870,9 +903,12 @@ function draw() {
   // background — pan shows left house; bg is 945 wide, board shows ~540 from offset
   const bgKey = state.level <= 10 ? 'bg1' : 'bg2';
   const bg = assets.img[bgKey];
-  if (bg) {
-    // Flash bg is 945×405; show left house + lawn (offset 0) matching BOARD 540
-    ctx.drawImage(bg, 0, 0, C.BOARD_W, C.BOARD_H, 0, 0, C.BOARD_W, C.BOARD_H);
+  // Also prefer unsodded when sodRows < 5
+  const bgUse = (state.sodRows < 5 && assets.img.bg1u) ? assets.img.bg1u : bg;
+  if (bgUse) {
+    // Flash: blitImage(bg, -BOARD_OFFSET, 0) → visible board 0..540 shows bg[148..688]
+    const ox = C.BOARD_OFFSET;
+    ctx.drawImage(bgUse, ox, 0, C.BOARD_W, C.BOARD_H, 0, 0, C.BOARD_W, C.BOARD_H);
   } else {
     ctx.fillStyle = '#5a8'; ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
   }
@@ -886,23 +922,34 @@ function draw() {
     }
   }
 
-  // mowers
+  // mowers — LawnMower.as: draw at (mPosX+4, mPosY); shadow at (mPosX-5, mPosY+30)
   for (const m of state.mowers) {
     if (m.dead) continue;
+    const my = m.y != null ? m.y : mowerLaneY(m.row);
+    const sh = assets.img.plantshadow;
+    if (sh) {
+      ctx.globalAlpha = 0.75;
+      ctx.drawImage(sh, m.x + C.MOWER_SHADOW.ox, my + C.MOWER_SHADOW.oy, C.PLANT_SHADOW.w, C.PLANT_SHADOW.h);
+      ctx.globalAlpha = 1;
+    }
     if (m.reanim) {
-      m.reanim.update(1);
-      m.reanim.draw(ctx, m.x, C.gridToPixelY(m.row) + 10);
+      m.reanim.draw(ctx, m.x + C.MOWER_DRAW_OX, my);
     } else {
-      drawImg('lawnmower', m.x, C.gridToPixelY(m.row) + 20, 50, 40);
+      drawImg('lawnmower', m.x + C.MOWER_DRAW_OX, my, 50, 40);
     }
   }
 
-  // plants (reanimator)
+  // plants — reanim at GridToPixel (CPlant.Draw); IMAGE_PLANTSHADOW under feet
   for (const p of state.plants) {
+    const sh = assets.img.plantshadow;
+    if (sh) {
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(sh, p.x + C.PLANT_SHADOW.ox, p.y + C.PLANT_SHADOW.oy, C.PLANT_SHADOW.w, C.PLANT_SHADOW.h);
+      ctx.globalAlpha = 1;
+    }
     ctx.save();
     if (p.flash) ctx.globalAlpha = 0.55;
     if (p.reanim) {
-      // Flash draws reanim at plant mX,mY = grid pixel
       p.reanim.body.draw(ctx, p.x, p.y);
     } else {
       const key = 'p_' + C.SEED_IMG[p.seed];
@@ -918,29 +965,43 @@ function draw() {
     }
   }
 
-  // zombies (reanimator)
+  // zombies — draw at GetPosYBasedOnRow (= GridY-30); shadow under feet (~ty 75)
   for (const z of state.zombies) {
+    if (z.dead) continue;
+    const zy = z.y;
+    const sh = assets.img.plantshadow;
+    if (sh && !z._dying) {
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(sh, z.x + 5, zy + 70, 50, 20);
+      ctx.globalAlpha = 1;
+    }
     if (z.reanim) {
       if (z.chilled > 0) z.reanim.overrideRGB = [0.55, 0.8, 1];
       else z.reanim.overrideRGB = [1, 1, 1];
-      z.reanim.draw(ctx, z.x, z.y);
-    } else {
+      z.reanim.draw(ctx, z.x, zy);
+    } else if (!z._dying) {
       const bob = Math.sin(z.bob) * 2;
       const im = assets.img[z.img] || assets.img.zNormal;
       if (z.chilled > 0) ctx.filter = 'hue-rotate(160deg) saturate(1.4)';
-      if (im) ctx.drawImage(im, z.x, z.y + bob - 10, 70, 88);
+      if (im) ctx.drawImage(im, z.x, zy + bob - 10, 70, 88);
       ctx.filter = 'none';
     }
     const total = z.maxHp + (z.helm || 0) + (z.shield || 0);
     const cur = Math.max(0, z.hp) + Math.max(0, z.helm || 0) + Math.max(0, z.shield || 0);
     if (cur < total && !z._dying) {
-      ctx.fillStyle = '#0008'; ctx.fillRect(z.x + 10, z.y - 6, 40, 3);
-      ctx.fillStyle = '#c33'; ctx.fillRect(z.x + 10, z.y - 6, 40 * (cur / total), 3);
+      ctx.fillStyle = '#0008'; ctx.fillRect(z.x + 10, zy - 6, 40, 3);
+      ctx.fillStyle = '#c33'; ctx.fillRect(z.x + 10, zy - 6, 40 * (cur / total), 3);
     }
   }
 
   // peas
   for (const pr of state.projectiles) {
+    const psh = assets.img.pea_shadows;
+    if (psh) {
+      ctx.globalAlpha = 0.45;
+      ctx.drawImage(psh, pr.x - 4, pr.y + 12, 20, 6);
+      ctx.globalAlpha = 1;
+    }
     drawImg(pr.snow ? 'snowpea' : 'pea', pr.x, pr.y, 14, 14);
   }
 
@@ -1024,10 +1085,18 @@ function draw() {
       const ok = rowsAllowed().includes(row) && !state.plants.some((p) => p.col === col && p.row === row && !p.dead);
       ctx.globalAlpha = 0.45;
       ctx.fillStyle = ok ? '#0f08' : '#f008';
-      ctx.fillRect(C.gridToPixelX(col), C.gridToPixelY(row), 54, 67);
+      const gx = C.gridToPixelX(col), gy = C.gridToPixelY(row);
+      ctx.fillRect(gx, gy, 54, 67);
+      if (assets.img.plantshadow) {
+        ctx.drawImage(assets.img.plantshadow, gx + C.PLANT_SHADOW.ox, gy + C.PLANT_SHADOW.oy, C.PLANT_SHADOW.w, C.PLANT_SHADOW.h);
+      }
       const pk = 'p_' + C.SEED_IMG[state.cursor.seed];
+      // Prefer reanim preview would be heavy; static seed art centered in cell
       if (assets.img[pk]) {
-        ctx.drawImage(assets.img[pk], C.gridToPixelX(col) + 5, C.gridToPixelY(row) + 10, 44, 44);
+        const im = assets.img[pk];
+        const scale = Math.min(48 / im.width, 56 / im.height);
+        const dw = im.width * scale, dh = im.height * scale;
+        ctx.drawImage(im, gx + (54 - dw) / 2, gy + 67 - dh - 8, dw, dh);
       }
       ctx.globalAlpha = 1;
     }
@@ -1129,7 +1198,7 @@ function updateCutscene() {
 }
 
 function frame(now) {
-  window.__PVZ = { get state(){return state;}, assets, reanimLib, C };
+  window.__PVZ = { get state(){return state;}, assets, reanimLib, C, initLevel, plantAt, spawnZombie: (...a)=>{ try { return spawnZombie(...a); } catch(e){ console.error(e);} } };
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (state.scene === 'cutscene') updateCutscene();

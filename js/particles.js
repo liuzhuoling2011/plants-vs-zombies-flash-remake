@@ -121,8 +121,10 @@ class Emitter {
     this.system = system;
     this.particles = [];
     this.age = 0;
-    this.duration = Math.max(1, Math.round(evalTrack(edef.params.SystemDuration, 0, Math.random())));
-    if (this.duration < 1) this.duration = 1;
+    let dur = evalTrack(edef.params.SystemDuration, 0, Math.random());
+    if (!Number.isFinite(dur) || dur <= 0) dur = 30;
+    this.duration = Math.max(1, Math.round(dur));
+    this._loops = !!(edef.flags & 8); // SYSTEM_LOOPS
     this.dead = false;
     this.spawnAccum = 0;
     this.launched = 0;
@@ -134,14 +136,21 @@ class Emitter {
     this.age++;
     let die = false;
     if (this.age >= this.duration) {
-      if (this.def.flags & 2) this.age = 0; // SYSTEM_LOOPS guess bit — check flags later
+      if (this._loops) this.age = 0;
       else { this.age = this.duration - 1; die = true; }
     }
     const t = this.age / Math.max(1, this.duration - 1);
     for (const p of this.particles) this.updateParticle(p, t);
     this.particles = this.particles.filter((p) => !p.dead);
     this.updateSpawning(t);
-    if (die && this.particles.length === 0) this.dead = true;
+    if (die) {
+      if (this.particles.length === 0) this.dead = true;
+      else if (this.age > this.duration + 60) {
+        // Force-clear stuck particles (prevents splat afterimages)
+        this.particles.length = 0;
+        this.dead = true;
+      }
+    }
   }
   updateSpawning(sysT) {
     const d = this.def;

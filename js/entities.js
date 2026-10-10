@@ -107,12 +107,16 @@ export function zombieSetEating(z, eating) {
 }
 
 export function zombiePlayDeath(z, lib) {
-  if (!z.reanim) return;
+  if (!z.reanim) { z.dead = true; return; }
   if (z.reanim.mDefinition.trackNameMap['anim_death']) {
     z.reanim.currentTrack = 'anim_death';
-    z.reanim.loopType = Reanimation.loopOnceAndHold(() => { z.dead = true; z._corpse = true; });
-    z.reanim.animRate = 24;
+    z.reanim.animRate = 28;
     z._dying = true;
+    z._deathAge = 0;
+    // Once finished: fade then remove — do NOT hold corpse forever (causes afterimages)
+    z.reanim.loopType = Reanimation.loopOnceAndHold(() => {
+      z._deathDone = true;
+    });
   } else {
     z.dead = true;
   }

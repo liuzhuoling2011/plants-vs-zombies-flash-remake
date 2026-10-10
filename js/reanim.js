@@ -99,12 +99,16 @@ function loopOnceAndHold(cb) {
   let done = false;
   return {
     updatePositive(r) {
-      if (r.animTime > 1) r.animTime = 1;
-      if (r.animTime === 1 && !done) { done = true; if (cb) cb(); }
+      if (r.animTime >= 1) {
+        r.animTime = 1;
+        if (!done) { done = true; if (cb) cb(); }
+      }
     },
     updateNegative(r) {
-      if (r.animTime < 0) r.animTime = 0;
-      if (r.animTime === 0 && !done) { done = true; if (cb) cb(); }
+      if (r.animTime <= 0) {
+        r.animTime = 0;
+        if (!done) { done = true; if (cb) cb(); }
+      }
     },
     doHold() { return true; },
   };
