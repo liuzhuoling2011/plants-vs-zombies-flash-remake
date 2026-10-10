@@ -1,0 +1,512 @@
+{
+  "particles": {
+    "PARTICLE_GRAVESTONERISE": {
+      "file": "assets/particles/PARTICLE_GRAVESTONERISE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DIRTSMALL"
+      ]
+    },
+    "PARTICLE_SNOWPEASPLAT": {
+      "file": "assets/particles/PARTICLE_SNOWPEASPLAT.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_SNOWPEA_SPLATS",
+        "IMAGE_SNOWPEA_PARTICLES"
+      ]
+    },
+    "PARTICLE_DIGGERRISE": {
+      "file": "assets/particles/PARTICLE_DIGGERRISE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DIRTSMALL"
+      ]
+    },
+    "PARTICLE_PLANTING": {
+      "file": "assets/particles/PARTICLE_PLANTING.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DIRTSMALL"
+      ]
+    },
+    "PARTICLE_VASESHATTER": {
+      "file": "assets/particles/PARTICLE_VASESHATTER.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_VASE_CHUNKS"
+      ]
+    },
+    "PARTICLE_PUFFSPLAT": {
+      "file": "assets/particles/PARTICLE_PUFFSPLAT.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_PUFFSHROOM_PUFF2"
+      ]
+    },
+    "PARTICLE_SEEDPACKETPICKUP": {
+      "file": "assets/particles/PARTICLE_SEEDPACKETPICKUP.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_ZombieHead",
+        "IMAGE_ZombieHead"
+      ]
+    },
+    "PARTICLE_ICETRAP": {
+      "file": "assets/particles/PARTICLE_ICETRAP.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_WHITEPIXEL",
+        "IMAGE_SNOWFLAKES"
+      ]
+    },
+    "PARTICLE_PUFFSHROOMTRAIL": {
+      "file": "assets/particles/PARTICLE_PUFFSHROOMTRAIL.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_PUFFSHROOM_PUFF2"
+      ]
+    },
+    "PARTICLE_PRESENTPICKUP": {
+      "file": "assets/particles/PARTICLE_PRESENTPICKUP.json",
+      "emitters": 3,
+      "images": [
+        "IMAGE_STAR40",
+        "IMAGE_STAR40",
+        "IMAGE_AWARDRAYS_STAR"
+      ]
+    },
+    "PARTICLE_ZOMBIEPOLEVALUTHEAD": {
+      "file": "assets/particles/PARTICLE_ZOMBIEPOLEVALUTHEAD.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEPOLEVAULTERHEAD"
+      ]
+    },
+    "PARTICLE_ZOMBIEHEADLIGHT": {
+      "file": "assets/particles/PARTICLE_ZOMBIEHEADLIGHT.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_DIGGER_HARDHAT3"
+      ]
+    },
+    "PARTICLE_ZOMBIENEWSPAPER": {
+      "file": "assets/particles/PARTICLE_ZOMBIENEWSPAPER.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_PAPER_PAPER3"
+      ]
+    },
+    "PARTICLE_ZOMBIETRAFFICCONE": {
+      "file": "assets/particles/PARTICLE_ZOMBIETRAFFICCONE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_CONE3"
+      ]
+    },
+    "PARTICLE_ZOMBIEHELMET": {
+      "file": "assets/particles/PARTICLE_ZOMBIEHELMET.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_FOOTBALL_HELMET3"
+      ]
+    },
+    "PARTICLE_ZOMBIEPOLEVAULTARM": {
+      "file": "assets/particles/PARTICLE_ZOMBIEPOLEVAULTARM.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_POLEVAULTER_OUTERARM_UPPER2"
+      ]
+    },
+    "PARTICLE_WALLNUTEATLARGE": {
+      "file": "assets/particles/PARTICLE_WALLNUTEATLARGE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_WALLNUTPARTICLESLARGE"
+      ]
+    },
+    "PARTICLE_MOWERCLOUD": {
+      "file": "assets/particles/PARTICLE_MOWERCLOUD.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_EXPLOSIONCLOUD",
+        "IMAGE_EXPLOSIONCLOUD"
+      ]
+    },
+    "PARTICLE_ZOMBIEHEAD": {
+      "file": "assets/particles/PARTICLE_ZOMBIEHEAD.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEHEAD"
+      ]
+    },
+    "PARTICLE_POTATOMINE": {
+      "file": "assets/particles/PARTICLE_POTATOMINE.json",
+      "emitters": 5,
+      "images": [
+        "IMAGE_REANIM_POTATOMINE_MASHED",
+        "IMAGE_POTATOMINE_PARTICLES",
+        "IMAGE_POTATOMINE_PARTICLES",
+        "IMAGE_EXPLOSIONSPUDOW",
+        "IMAGE_POTATOMINEFLASH"
+      ]
+    },
+    "PARTICLE_ZOMBIEFOOTBALLHEAD": {
+      "file": "assets/particles/PARTICLE_ZOMBIEFOOTBALLHEAD.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEFOOTBALLHEAD"
+      ]
+    },
+    "PARTICLE_AWARD": {
+      "file": "assets/particles/PARTICLE_AWARD.json",
+      "emitters": 7,
+      "images": [
+        "IMAGE_AWARDRAYS",
+        "IMAGE_AWARDRAYS",
+        "IMAGE_AWARDGLOW",
+        "IMAGE_AWARDGLOW",
+        "IMAGE_AWARDGLOW",
+        "IMAGE_AWARDGLOW",
+        "IMAGE_AWARDGLOW"
+      ]
+    },
+    "PARTICLE_ARTCHALLENGEPLANT": {
+      "file": "assets/particles/PARTICLE_ARTCHALLENGEPLANT.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_STAR40"
+      ]
+    },
+    "PARTICLE_ZOMBIEFLAG": {
+      "file": "assets/particles/PARTICLE_ZOMBIEFLAG.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_FLAG3"
+      ]
+    },
+    "PARTICLE_MOWEREDZOMBIEARM": {
+      "file": "assets/particles/PARTICLE_MOWEREDZOMBIEARM.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEARM"
+      ]
+    },
+    "PARTICLE_JACKEXPLODE": {
+      "file": "assets/particles/PARTICLE_JACKEXPLODE.json",
+      "emitters": 4,
+      "images": [
+        "IMAGE_ZOMBOSS_PARTICLES",
+        "IMAGE_EXPLOSIONCLOUD",
+        "IMAGE_EXPLOSIONCLOUD",
+        "IMAGE_SPROING"
+      ]
+    },
+    "PARTICLE_SEEDPACKETPICK": {
+      "file": "assets/particles/PARTICLE_SEEDPACKETPICK.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DOWNARROW"
+      ]
+    },
+    "PARTICLE_CIRCLEEVENSPACING": {
+      "file": "assets/particles/PARTICLE_CIRCLEEVENSPACING.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_PROJECTILE"
+      ]
+    },
+    "PARTICLE_COINPICKUPARROW": {
+      "file": "assets/particles/PARTICLE_COINPICKUPARROW.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DOWNARROW"
+      ]
+    },
+    "PARTICLE_VASESHATTERLEAF": {
+      "file": "assets/particles/PARTICLE_VASESHATTERLEAF.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_VASE_CHUNKS"
+      ]
+    },
+    "PARTICLE_POWIE": {
+      "file": "assets/particles/PARTICLE_POWIE.json",
+      "emitters": 3,
+      "images": [
+        "IMAGE_EXPLOSIONCLOUD",
+        "IMAGE_EXPLOSIONCLOUD",
+        "IMAGE_EXPLOSIONPOWIE"
+      ]
+    },
+    "PARTICLE_PUFFSHROOMMUZZLE": {
+      "file": "assets/particles/PARTICLE_PUFFSHROOMMUZZLE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_PUFFSHROOM_PUFF2"
+      ]
+    },
+    "PARTICLE_STARBURST": {
+      "file": "assets/particles/PARTICLE_STARBURST.json",
+      "emitters": 3,
+      "images": [
+        "IMAGE_STAR40",
+        "IMAGE_STAR40",
+        "IMAGE_AWARDRAYS_STAR"
+      ]
+    },
+    "PARTICLE_FUMECLOUD": {
+      "file": "assets/particles/PARTICLE_FUMECLOUD.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_PUFFSHROOM_PUFF1"
+      ]
+    },
+    "PARTICLE_UPSELLARROW": {
+      "file": "assets/particles/PARTICLE_UPSELLARROW.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DOWNARROW"
+      ]
+    },
+    "PARTICLE_SNOWPEATRAIL": {
+      "file": "assets/particles/PARTICLE_SNOWPEATRAIL.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_SNOWFLAKES"
+      ]
+    },
+    "PARTICLE_ZOMBIENEWSPAPERHEAD": {
+      "file": "assets/particles/PARTICLE_ZOMBIENEWSPAPERHEAD.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_ZOMBIEHEAD",
+        "IMAGE_REANIM_ZOMBIE_PAPER_GLASSES"
+      ]
+    },
+    "PARTICLE_ZOMBIERISE": {
+      "file": "assets/particles/PARTICLE_ZOMBIERISE.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_DIRTSMALL",
+        "IMAGE_DIRTBIG"
+      ]
+    },
+    "PARTICLE_ZOMBIEPAIL": {
+      "file": "assets/particles/PARTICLE_ZOMBIEPAIL.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_BUCKET3"
+      ]
+    },
+    "PARTICLE_ZOMBIEFOOTBALLARM": {
+      "file": "assets/particles/PARTICLE_ZOMBIEFOOTBALLARM.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_FOOTBALL_LEFTARM_UPPER2"
+      ]
+    },
+    "PARTICLE_ZOMBIEHEADPOOL": {
+      "file": "assets/particles/PARTICLE_ZOMBIEHEADPOOL.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEHEAD"
+      ]
+    },
+    "PARTICLE_ICESPARKLE": {
+      "file": "assets/particles/PARTICLE_ICESPARKLE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ICE_SPARKLES"
+      ]
+    },
+    "PARTICLE_MOWEREDZOMBIEHEAD": {
+      "file": "assets/particles/PARTICLE_MOWEREDZOMBIEHEAD.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEHEAD"
+      ]
+    },
+    "PARTICLE_AWARDPICKUPARROW": {
+      "file": "assets/particles/PARTICLE_AWARDPICKUPARROW.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_AWARDPICKUPGLOW",
+        "IMAGE_DOWNARROW"
+      ]
+    },
+    "PARTICLE_DIGGERTUNNEL": {
+      "file": "assets/particles/PARTICLE_DIGGERTUNNEL.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_DIRTSMALL",
+        "IMAGE_DIRTBIG"
+      ]
+    },
+    "PARTICLE_SODROLL": {
+      "file": "assets/particles/PARTICLE_SODROLL.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DIRTSMALL"
+      ]
+    },
+    "PARTICLE_GRAVEBUSTER": {
+      "file": "assets/particles/PARTICLE_GRAVEBUSTER.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ROCKSMALL"
+      ]
+    },
+    "PARTICLE_GRAVEBUSTERDIE": {
+      "file": "assets/particles/PARTICLE_GRAVEBUSTERDIE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DIRTSMALL"
+      ]
+    },
+    "PARTICLE_WALLNUTEATSMALL": {
+      "file": "assets/particles/PARTICLE_WALLNUTEATSMALL.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_WALLNUTPARTICLESSMALL"
+      ]
+    },
+    "PARTICLE_PEASPLAT": {
+      "file": "assets/particles/PARTICLE_PEASPLAT.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_PEA_SPLATS",
+        "IMAGE_PEA_PARTICLES"
+      ]
+    },
+    "PARTICLE_ZOMBIEARM": {
+      "file": "assets/particles/PARTICLE_ZOMBIEARM.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_ZOMBIEARM"
+      ]
+    },
+    "PARTICLE_ZOMBIEDOOR": {
+      "file": "assets/particles/PARTICLE_ZOMBIEDOOR.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_REANIM_ZOMBIE_SCREENDOOR3"
+      ]
+    },
+    "PARTICLE_SEEDPACKET": {
+      "file": "assets/particles/PARTICLE_SEEDPACKET.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_DOWNARROW",
+        "IMAGE_SEEDPACKETGLOW"
+      ]
+    },
+    "PARTICLE_SEEDPACKETFLASH": {
+      "file": "assets/particles/PARTICLE_SEEDPACKETFLASH.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_SEEDPACKETFLASH"
+      ]
+    },
+    "PARTICLE_SCREENFLASH": {
+      "file": "assets/particles/PARTICLE_SCREENFLASH.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_WHITEPIXEL"
+      ]
+    },
+    "PARTICLE_POTATOMINERISE": {
+      "file": "assets/particles/PARTICLE_POTATOMINERISE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_DIRTSMALL"
+      ]
+    },
+    "PARTICLE_DUST_SQUASH": {
+      "file": "assets/particles/PARTICLE_DUST_SQUASH.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_DUST_PUFFS",
+        "IMAGE_DUST_PUFFS"
+      ]
+    },
+    "PARTICLE_SNOWPEAPUFF": {
+      "file": "assets/particles/PARTICLE_SNOWPEAPUFF.json",
+      "emitters": 2,
+      "images": [
+        "IMAGE_SNOWPEA_PUFF",
+        "IMAGE_SNOWPEA_PARTICLES"
+      ]
+    },
+    "PARTICLE_VASESHATTERZOMBIE": {
+      "file": "assets/particles/PARTICLE_VASESHATTERZOMBIE.json",
+      "emitters": 1,
+      "images": [
+        "IMAGE_VASE_CHUNKS"
+      ]
+    }
+  },
+  "fonts": {},
+  "images": {
+    "IMAGE_AWARDGLOW": "assets/particles/images/IMAGE_AWARDGLOW.png",
+    "IMAGE_AWARDPICKUPGLOW": "assets/particles/images/IMAGE_AWARDPICKUPGLOW.png",
+    "IMAGE_AWARDRAYS": "assets/particles/images/IMAGE_AWARDRAYS.png",
+    "IMAGE_AWARDRAYS_STAR": "assets/particles/images/IMAGE_AWARDRAYS_STAR.png",
+    "IMAGE_DIRTBIG": "assets/particles/images/IMAGE_DIRTBIG.png",
+    "IMAGE_DIRTSMALL": "assets/particles/images/IMAGE_DIRTSMALL.png",
+    "IMAGE_DOWNARROW": "assets/particles/images/IMAGE_DOWNARROW.png",
+    "IMAGE_EXPLOSIONCLOUD": "assets/particles/images/IMAGE_EXPLOSIONCLOUD.png",
+    "IMAGE_EXPLOSIONPOWIE": "assets/particles/images/IMAGE_EXPLOSIONPOWIE.png",
+    "IMAGE_EXPLOSIONSPUDOW": "assets/particles/images/IMAGE_EXPLOSIONSPUDOW.png",
+    "IMAGE_FONT_BRIANNETOD16": "assets/particles/images/IMAGE_FONT_BRIANNETOD16.png",
+    "IMAGE_FONT_CONTINUUMBOLD14": "assets/particles/images/IMAGE_FONT_CONTINUUMBOLD14.png",
+    "IMAGE_FONT_DWARVENTODCRAFT15": "assets/particles/images/IMAGE_FONT_DWARVENTODCRAFT15.png",
+    "IMAGE_FONT_DWARVENTODCRAFT18": "assets/particles/images/IMAGE_FONT_DWARVENTODCRAFT18.png",
+    "IMAGE_FONT_DWARVENTODCRAFT18YELLOW": "assets/particles/images/IMAGE_FONT_DWARVENTODCRAFT18YELLOW.png",
+    "IMAGE_FONT_DWARVENTODCRAFT24": "assets/particles/images/IMAGE_FONT_DWARVENTODCRAFT24.png",
+    "IMAGE_FONT_DWARVENTODCRAFT36BRIGHTGREENINSET": "assets/particles/images/IMAGE_FONT_DWARVENTODCRAFT36BRIGHTGREENINSET.png",
+    "IMAGE_FONT_DWARVENTODCRAFT36GREENINSET": "assets/particles/images/IMAGE_FONT_DWARVENTODCRAFT36GREENINSET.png",
+    "IMAGE_FONT_HOUSEOFTERROR16OUTLINE": "assets/particles/images/IMAGE_FONT_HOUSEOFTERROR16OUTLINE.png",
+    "IMAGE_FONT_HOUSEOFTERROR28": "assets/particles/images/IMAGE_FONT_HOUSEOFTERROR28.png",
+    "IMAGE_FONT_PICO129": "assets/particles/images/IMAGE_FONT_PICO129.png",
+    "IMAGE_FONT_PIX118BOLD": "assets/particles/images/IMAGE_FONT_PIX118BOLD.png",
+    "IMAGE_ICE_SPARKLES": "assets/particles/images/IMAGE_ICE_SPARKLES.png",
+    "IMAGE_PEA_PARTICLES": "assets/particles/images/IMAGE_PEA_PARTICLES.png",
+    "IMAGE_PEA_SPLATS": "assets/particles/images/IMAGE_PEA_SPLATS.png",
+    "IMAGE_POTATOMINEFLASH": "assets/particles/images/IMAGE_POTATOMINEFLASH.png",
+    "IMAGE_POTATOMINE_PARTICLES": "assets/particles/images/IMAGE_POTATOMINE_PARTICLES.png",
+    "IMAGE_PUFFSHROOM_PUFF1": "assets/particles/images/IMAGE_PUFFSHROOM_PUFF1.png",
+    "IMAGE_PUFFSHROOM_PUFF2": "assets/particles/images/IMAGE_PUFFSHROOM_PUFF2.png",
+    "IMAGE_REANIM_POTATOMINE_MASHED": "assets/reanim/images/IMAGE_REANIM_POTATOMINE_MASHED.png",
+    "IMAGE_REANIM_ZOMBIE_BUCKET3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_BUCKET3.png",
+    "IMAGE_REANIM_ZOMBIE_CONE3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_CONE3.png",
+    "IMAGE_REANIM_ZOMBIE_FLAG3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_FLAG3.png",
+    "IMAGE_REANIM_ZOMBIE_FOOTBALL_HELMET3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_FOOTBALL_HELMET3.png",
+    "IMAGE_REANIM_ZOMBIE_FOOTBALL_LEFTARM_UPPER2": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_FOOTBALL_LEFTARM_UPPER2.png",
+    "IMAGE_REANIM_ZOMBIE_PAPER_GLASSES": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_PAPER_GLASSES.png",
+    "IMAGE_REANIM_ZOMBIE_PAPER_PAPER3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_PAPER_PAPER3.png",
+    "IMAGE_REANIM_ZOMBIE_POLEVAULTER_OUTERARM_UPPER2": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_POLEVAULTER_OUTERARM_UPPER2.png",
+    "IMAGE_REANIM_ZOMBIE_SCREENDOOR3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_SCREENDOOR3.png",
+    "IMAGE_ROCKSMALL": "assets/particles/images/IMAGE_ROCKSMALL.png",
+    "IMAGE_SEEDPACKETFLASH": "assets/particles/images/IMAGE_SEEDPACKETFLASH.png",
+    "IMAGE_SEEDPACKETGLOW": "assets/particles/images/IMAGE_SEEDPACKETGLOW.png",
+    "IMAGE_SNOWFLAKES": "assets/particles/images/IMAGE_SNOWFLAKES.png",
+    "IMAGE_SNOWPEA_PARTICLES": "assets/particles/images/IMAGE_SNOWPEA_PARTICLES.png",
+    "IMAGE_SNOWPEA_PUFF": "assets/particles/images/IMAGE_SNOWPEA_PUFF.png",
+    "IMAGE_SNOWPEA_SPLATS": "assets/particles/images/IMAGE_SNOWPEA_SPLATS.png",
+    "IMAGE_STAR40": "assets/particles/images/IMAGE_STAR40.png",
+    "IMAGE_VASE_CHUNKS": "assets/particles/images/IMAGE_VASE_CHUNKS.png",
+    "IMAGE_WALLNUTPARTICLESLARGE": "assets/particles/images/IMAGE_WALLNUTPARTICLESLARGE.png",
+    "IMAGE_WALLNUTPARTICLESSMALL": "assets/particles/images/IMAGE_WALLNUTPARTICLESSMALL.png",
+    "IMAGE_WHITEPIXEL": "assets/particles/images/IMAGE_WHITEPIXEL.png",
+    "IMAGE_ZOMBIEARM": "assets/particles/images/IMAGE_ZOMBIEARM.png",
+    "IMAGE_ZOMBIEFOOTBALLHEAD": "assets/particles/images/IMAGE_ZOMBIEFOOTBALLHEAD.png",
+    "IMAGE_ZOMBIEHEAD": "assets/particles/images/IMAGE_ZOMBIEHEAD.png",
+    "IMAGE_ZOMBIEPOLEVAULTERHEAD": "assets/particles/images/IMAGE_ZOMBIEPOLEVAULTERHEAD.png",
+    "IMAGE_DUST_PUFFS": "assets/particles/images/IMAGE_DIRTSMALL.png",
+    "IMAGE_ZombieHead": "assets/particles/images/IMAGE_ZOMBIEHEAD.png",
+    "IMAGE_SPROING": "assets/particles/images/IMAGE_DIRTSMALL.png",
+    "IMAGE_ZOMBOSS_PARTICLES": "assets/particles/images/IMAGE_EXPLOSIONCLOUD.png",
+    "IMAGE_PROJECTILE": "assets/particles/images/IMAGE_DIRTSMALL.png",
+    "IMAGE_REANIM_ZOMBIE_DIGGER_HARDHAT3": "assets/reanim/images/IMAGE_REANIM_ZOMBIE_CONE3.png"
+  }
+}

@@ -2,6 +2,9 @@
 import * as C from './constants.js';
 import { ReanimLibrary } from './reanim.js';
 import * as Ent from './entities.js';
+import { ParticleLibrary } from './particles.js';
+import { FontLibrary } from './fonts.js';
+import * as Cut from './cutscenes.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -24,6 +27,8 @@ window.addEventListener('resize', fitCanvas);
 
 const assets = { img: {}, sfx: {}, music: {} };
 const reanimLib = new ReanimLibrary();
+const particleLib = new ParticleLibrary();
+const fontLib = new FontLibrary();
 const loadImg = (src) => new Promise((res, rej) => {
   const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
 });
@@ -59,6 +64,9 @@ async function loadAll() {
   await Promise.all(Object.entries(imgs).map(async ([k, v]) => { try { assets.img[k] = await loadImg(v); } catch(e) { console.warn('img', v, e); } }));
   const _ld=document.getElementById('loading'); if (_ld) _ld.textContent = '正在加载骨骼动画（Reanimator）…';
   await reanimLib.load('assets/reanim/manifest.json');
+  const _ld2=document.getElementById('loading'); if (_ld2) _ld2.textContent = '正在加载粒子与位图字体…';
+  await particleLib.load('assets/particles/manifest.json');
+  await fontLib.load('assets/fonts/manifest.json');
   const AC = window.AudioContext || window.webkitAudioContext;
   assets.ac = AC ? new AC() : null;
   assets.buffers = {};
@@ -87,6 +95,14 @@ function playSfx(name, vol = 1) {
   s.connect(g); g.connect(assets.ac.destination);
   s.start();
 }
+function spawnFx(key, x, y) {
+  try {
+    const sys = particleLib.spawn(key, x, y);
+    if (sys) state.fx.push(sys);
+  } catch (e) { console.warn('fx', key, e); }
+}
+
+
 function unlockAudio() {
   if (assets.ac && assets.ac.state === 'suspended') assets.ac.resume();
 }
@@ -175,6 +191,63 @@ function initLevel(level) {
     reanim: Ent.createMowerReanim(reanimLib),
   }));
 
+  state.fx = [];
+  state.charred = [];
+  state.dave = null;
+  state.cutscene = null;
+  // Sod-roll cutscene for levels that unlock lawn (SodRollState.as)
+  if (state.gameMode === 'adventure' && Cut.levelsWithSod(level) && level <= 4 && !state._skipSod) {
+    const rolls = [];
+    const n = level === 1 ? 1 : 2;
+    for (let i = 0; i < n; i++) {
+      const r = Cut.createSodRollReanim(reanimLib, level, i);
+      if (r) rolls.push(r);
+      spawnFx('PARTICLE_SODROLL', 20, level === 1 ? 260 : (i === 0 ? 200 : 350));
+    }
+    state.cutscene = { kind: 'sod', t: 0, rolls, sodPos: 0 };
+    state.scene = 'cutscene';
+    // Start with previous sodRows visually until roll completes
+    if (level === 1) state.sodRows = 0;
+    else if (level === 2) state.sodRows = 1;
+    else if (level === 4) state.sodRows = 3;
+  } else if (state.gameMode === 'adventure' && level === 1) {
+    // Crazy Dave greeting (dialog indices from CrazyDaveState)
+    startDave([1001, 1002, 1003]);
+  } else {
+    try { assets.menuBgm.pause(); assets.loseBgm.pause(); assets.winBgm.pause(); } catch(_){}
+    assets.bgm.currentTime = 0;
+    assets.bgm.play().catch(() => {});
+    playSfx('readysetplant', 0.7);
+    playSfx('awooga', 0.5);
+  }
+}
+
+function startDave(indices) {
+  const re = Cut.createDaveReanim(reanimLib);
+  state.dave = {
+    reanim: re,
+    queue: indices.slice(),
+    index: 0,
+    text: '',
+    delay: 0,
+  };
+  if (indices.length) {
+    state.dave.text = Cut.cleanDaveText(Cut.daveText(indices[0]));
+    Cut.daveTalk(re, 'small');
+  }
+  state.cutscene = { kind: 'dave' };
+  state.scene = 'cutscene';
+}
+
+function finishCutsceneToPlay() {
+  state.cutscene = null;
+  state.dave = null;
+  state.sodRows = C.sodRowsForLevel(state.level);
+  state.mowers = rowsAllowed().map((r) => ({
+    row: r, x: 10, dead: false, active: false, speed: 0,
+    reanim: Ent.createMowerReanim(reanimLib),
+  }));
+  state.scene = 'playing';
   try { assets.menuBgm.pause(); assets.loseBgm.pause(); assets.winBgm.pause(); } catch(_){}
   assets.bgm.currentTime = 0;
   assets.bgm.play().catch(() => {});
@@ -210,6 +283,7 @@ function plantAt(col, row, seed) {
   plant.reanim = Ent.createPlantReanim(reanimLib, seed);
   state.plants.push(plant);
   playSfx('plant');
+  spawnFx('PARTICLE_PLANTING', plant.x + 27, plant.y + 55);
   return true;
 }
 
@@ -238,6 +312,7 @@ function spawnZombie(type, row) {
     img, phase: 0, reanim: null, _wasEating: false, _dying: false,
   };
   z.reanim = Ent.createZombieReanim(reanimLib, type);
+  Ent.initZombiePhase(z);
   state.zombies.push(z);
   if (Math.random() < 0.25) playSfx('groan', 0.4);
 }
@@ -295,20 +370,39 @@ function addPea(plant, snow) {
   playSfx('throw', 0.35);
 }
 
-function damageZombie(z, dmg, freeze) {
-  if (z.dead) return;
+function damageZombie(z, dmg, freeze, opts = {}) {
+  if (!z || z.dead || z._dying) return;
+  if (freeze) z.chilled = Math.max(z.chilled || 0, 1000);
+  let left = dmg;
   if (z.shield > 0) {
-    z.shield -= dmg;
-    if (z.shield < 0) { dmg = -z.shield; z.shield = 0; } else { dmg = 0; }
+    const take = Math.min(z.shield, left);
+    z.shield -= take; left -= take;
   }
-  if (dmg > 0 && z.helm > 0) {
-    z.helm -= dmg;
-    if (z.helm < 0) { dmg = -z.helm; z.helm = 0; } else { dmg = 0; }
+  if (left > 0 && z.helm > 0) {
+    const take = Math.min(z.helm, left);
+    z.helm -= take; left -= take;
+    // helmet crack visibility (cone/bucket)
+    if (z.reanim && z.type === C.ZOMBIE.CONE) {
+      const r = z.helm / 370;
+      z.reanim.setTrackVisible('anim_cone1', r > 0.66);
+      z.reanim.setTrackVisible('anim_cone2', r > 0.33 && r <= 0.66);
+      z.reanim.setTrackVisible('anim_cone3', r > 0 && r <= 0.33);
+    }
+    if (z.reanim && z.type === C.ZOMBIE.BUCKET) {
+      const r = z.helm / 1100;
+      z.reanim.setTrackVisible('anim_bucket1', r > 0.66);
+      z.reanim.setTrackVisible('anim_bucket2', r > 0.33 && r <= 0.66);
+      z.reanim.setTrackVisible('anim_bucket3', r > 0 && r <= 0.33);
+    }
   }
-  if (dmg > 0) z.hp -= dmg;
-  if (freeze) z.chilled = Math.max(z.chilled, 300);
+  if (left > 0) z.hp -= left;
+  Ent.updateNewspaper(z);
   if (z.hp <= 0 && !z._dying) {
     playSfx('limbs', 0.3);
+    if (opts.burn) {
+      const ch = Ent.createCharredReanim(reanimLib, z.x, z.y);
+      if (ch) { state.charred.push(ch); z.dead = true; z._dying = true; return; }
+    }
     if (z.reanim && z.reanim.mDefinition.trackNameMap['anim_death']) {
       Ent.zombiePlayDeath(z, reanimLib);
     } else {
@@ -384,7 +478,8 @@ function updatePlaying(dtTicks) {
           for (const z of state.zombies) {
             if (z.dead) continue;
             if (Math.abs(z.row - p.row) <= 1 && Math.abs(z.x - (p.x + 27)) < 120) {
-              damageZombie(z, 1800, false);
+              damageZombie(z, 1800, false, { burn: true });
+              spawnFx('PARTICLE_POWIE', z.x + 20, z.y + 40);
             }
           }
           p.dead = true;
@@ -394,6 +489,7 @@ function updatePlaying(dtTicks) {
         if (target && p.state === 0) { p.state = 1; p.age = 0; }
         if (p.state === 1 && p.age > 50) {
           damageZombie(target || {}, 1800, false);
+          spawnFx('PARTICLE_DUST_SQUASH', p.x + 27, p.y + 50);
           for (const z of state.zombies) {
             if (!z.dead && z.row === p.row && Math.abs(z.x - (p.x + 20)) < 50) damageZombie(z, 1800, false);
           }
@@ -430,6 +526,8 @@ function updatePlaying(dtTicks) {
         if (z.dead || z.row !== pr.row) continue;
         if (pr.x > z.x + 10 && pr.x < z.x + 50) {
           damageZombie(z, C.PROJECTILE_DAMAGE, pr.snow);
+          spawnFx(pr.snow ? 'PARTICLE_SNOWPEASPLAT' : 'PARTICLE_PEASPLAT', pr.x, pr.y);
+          if (pr.snow) spawnFx('PARTICLE_ICESPARKLE', pr.x, pr.y);
           if (pr.snow) playSfx('frozen', 0.25);
           pr.dead = true;
           break;
@@ -444,10 +542,19 @@ function updatePlaying(dtTicks) {
       z.age++;
       z.bob += 0.08;
       if (z.chilled > 0) z.chilled--;
-      const plant = state.plants.find((p) => !p.dead && p.row === z.row && z.x < p.x + 45 && z.x + 40 > p.x + 10);
+      const plant = state.plants.find((p) => !p.dead && p.row === z.row && (z.x + Ent.ZOMBIE_HIT.x) < p.x + 48 && (z.x + Ent.ZOMBIE_HIT.x + Ent.ZOMBIE_HIT.w) > p.x + 6);
       if (z._dying) {
         if (z.reanim) z.reanim.update(1);
         continue;
+      }
+      Ent.updatePolevaulter(z, state.plants);
+      Ent.updateNewspaper(z);
+      if (z.phase === Ent.PHASE.POLE_IN || z.phase === Ent.PHASE.POLE_PRE && z.type === C.ZOMBIE.POLE) {
+        // PRE still walks; IN handled inside updatePolevaulter
+        if (z.phase === Ent.PHASE.POLE_IN) {
+          if (z.reanim) z.reanim.update(1);
+          continue;
+        }
       }
       if (plant && !(plant.seed === C.SEED.CHERRYBOMB || plant.seed === C.SEED.SQUASH)) {
         z.eating = true;
@@ -456,7 +563,10 @@ function updatePlaying(dtTicks) {
           if (!(z.chilled > 0 && z.age % 2 === 1)) {
             plant.hp -= C.TICKS_BETWEEN_EATS;
             plant.flash = 8;
-            if (z.age % 20 === 0) playSfx('chomp', 0.25);
+            if (z.age % 20 === 0) {
+              playSfx('chomp', 0.25);
+              if (plant.seed === C.SEED.WALLNUT) spawnFx('PARTICLE_WALLNUTEATSMALL', plant.x + 27, plant.y + 30);
+            }
             if (plant.hp <= 0) {
               plant.dead = true;
               playSfx('gulp', 0.4);
@@ -499,6 +609,8 @@ function updatePlaying(dtTicks) {
         m.x += m.speed;
         for (const z of state.zombies) {
           if (!z.dead && z.row === m.row && z.x < m.x + 40 && z.x > m.x - 10) {
+            spawnFx('PARTICLE_MOWERCLOUD', z.x + 20, z.y + 40);
+            spawnFx('PARTICLE_MOWEREDZOMBIEHEAD', z.x + 20, z.y + 20);
             z.dead = true;
           }
         }
@@ -521,14 +633,30 @@ function updatePlaying(dtTicks) {
     }
     state.suns = state.suns.filter((s) => !s.collected);
 
+    // particles + charred
+    for (const fx of state.fx) fx.update(1);
+    state.fx = state.fx.filter((f) => !f.dead);
+    for (const ch of state.charred) ch.update(1);
+    state.charred = state.charred.filter((c) => c.animTime < 1 || !c.mIsDead);
+
     // win check
     if (state.wave >= state.numWaves && state.waveCD < 0 && state.zombies.length === 0) {
-      state.scene = 'won';
-      const next = Math.min(20, state.level + 1);
-      if (next > state.maxLevel) { state.maxLevel = next; writeSave({ maxLevel: next }); }
-      writeSave({ level: next });
-      try { assets.bgm.pause(); assets.winBgm.currentTime = 0; assets.winBgm.play(); } catch(_){}
-      return;
+      if (state.gameMode === 'survival') {
+        state.survivalFlags = (state.survivalFlags || 0) + 1;
+        state.wave = 0;
+        state.numWaves = 8;
+        state.waveCD = C.ZOMBIE_COUNTDOWN;
+        state.message = `旗帜 ${state.survivalFlags} 守住了！继续…`;
+        state.messageT = 250;
+        playSfx('readysetplant', 0.5);
+      } else {
+        state.scene = 'won';
+        const next = Math.min(20, state.level + 1);
+        if (next > state.maxLevel) { state.maxLevel = next; writeSave({ maxLevel: next }); }
+        writeSave({ level: next });
+        try { assets.bgm.pause(); assets.winBgm.currentTime = 0; assets.winBgm.play(); } catch(_){}
+        return;
+      }
     }
   }
 }
@@ -554,6 +682,18 @@ function onPointer(x, y, isDown) {
   if (!isDown) return;
   unlockAudio();
 
+  if (state.scene === 'cutscene' && state.cutscene && state.cutscene.kind === 'dave') {
+    const d = state.dave;
+    if (d) {
+      d.index++;
+      if (d.index >= d.queue.length) finishCutsceneToPlay();
+      else {
+        d.text = Cut.cleanDaveText(Cut.daveText(d.queue[d.index]));
+        Cut.daveTalk(d.reanim, d.index % 2 ? 'crazy' : 'small');
+      }
+    }
+    return;
+  }
   if (state.scene === 'title') {
     state.scene = 'menu';
     playSfx('buttonclick');
@@ -561,18 +701,27 @@ function onPointer(x, y, isDown) {
     return;
   }
   if (state.scene === 'menu') {
-    // Adventure button region
-    if (x > 160 && x < 380 && y > 80 && y < 150) {
+    if (x > 150 && x < 390 && y > 70 && y < 118) {
       playSfx('buttonclick');
+      state.gameMode = 'adventure';
       initLevel(Math.min(state.maxLevel, loadSave().level || 1));
-    } else if (x > 160 && x < 380 && y > 170 && y < 220) {
-      // continue / level select simple
+    } else if (x > 150 && x < 390 && y > 130 && y < 178) {
       playSfx('buttonclick');
+      state.gameMode = 'adventure';
       initLevel(state.maxLevel);
-    } else if (x > 160 && x < 380 && y > 240 && y < 290) {
+    } else if (x > 150 && x < 390 && y > 190 && y < 238) {
+      playSfx('buttonclick');
+      state.gameMode = 'survival';
+      state.survivalFlags = 0;
+      initLevel(10); // night-ish board; survival uses flag waves
+      state.numWaves = 8;
+      state.message = '生存无尽：守住草坪！';
+      state.messageT = 200;
+    } else if (x > 150 && x < 390 && y > 250 && y < 298) {
       writeSave({ maxLevel: 1, level: 1 }); state.maxLevel = 1;
       playSfx('tap');
-      state.message = '进度已重置'; 
+      state.message = '进度已重置';
+      state.messageT = 150;
     }
     return;
   }
@@ -652,6 +801,27 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'p' || e.key === 'P') state.paused = !state.paused;
 });
 
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function wrapText(ctx, text, x, y, maxW, lineH) {
+  const chars = [...text];
+  let line = '';
+  let yy = y;
+  for (const ch of chars) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, yy); yy += lineH; line = ch;
+    } else line = test;
+  }
+  if (line) ctx.fillText(line, x, yy);
+}
 function drawImg(key, x, y, w, h) {
   const im = assets.img[key];
   if (!im) return;
@@ -686,8 +856,9 @@ function draw() {
       ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(label, 270, y + 32);
     };
-    btn(90, '开始冒险');
-    btn(170, `继续 (关卡 ${state.maxLevel})`);
+    btn(70, '开始冒险');
+    btn(130, `继续 (关卡 ${state.maxLevel})`);
+    btn(190, '生存无尽');
     btn(250, '重置进度');
     ctx.fillStyle = '#eee'; ctx.font = '14px sans-serif';
     ctx.fillText('植物大战僵尸 · 4399 Flash HTML5 重制', 270, 340);
@@ -783,13 +954,22 @@ function draw() {
     }
   }
 
+  // particles / charred (above entities)
+  for (const fx of state.fx) fx.draw(ctx);
+  for (const ch of state.charred) ch.draw(ctx, ch.x, ch.y);
+
   // seed bank HUD
   drawImg('seedbank', 0, 0);
   // sun counter area
-  ctx.fillStyle = '#222';
-  ctx.font = 'bold 16px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(String(state.sun), 40, 72);
+  if (fontLib.fonts.FONT_CONTINUUMBOLD14 || fontLib.fonts.FONT_BRIANNETOD16) {
+    const fk = fontLib.fonts.FONT_CONTINUUMBOLD14 ? 'FONT_CONTINUUMBOLD14' : 'FONT_BRIANNETOD16';
+    fontLib.draw(ctx, fk, String(state.sun), 40, 72, 'center');
+  } else {
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(state.sun), 40, 72);
+  }
 
   for (let i = 0; i < state.packets.length; i++) {
     const p = state.packets[i];
@@ -827,8 +1007,14 @@ function draw() {
   // progress / wave
   ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
   ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-  const prog = `第${state.level}关  波次 ${Math.min(state.wave, state.numWaves)}/${state.numWaves}`;
-  ctx.strokeText(prog, 530, 395); ctx.fillText(prog, 530, 395);
+  const prog = state.gameMode === 'survival'
+    ? `生存  旗帜 ${state.survivalFlags}`
+    : `第${state.level}关  波次 ${Math.min(state.wave, state.numWaves)}/${state.numWaves}`;
+  if (fontLib.fonts.FONT_PIX118BOLD) {
+    fontLib.draw(ctx, 'FONT_PIX118BOLD', prog, 530, 398, 'right');
+  } else {
+    ctx.strokeText(prog, 530, 395); ctx.fillText(prog, 530, 395);
+  }
 
   // ghost cursor plant
   if (state.cursor?.type === 'seed') {
@@ -875,6 +1061,29 @@ function draw() {
     ctx.strokeText('种植！', 270, 200); ctx.fillText('种植！', 270, 200);
   }
 
+  if (state.scene === 'cutscene') {
+    // dim
+    if (state.cutscene.kind === 'sod') {
+      for (const r of state.cutscene.rolls || []) r.draw(ctx, r.x, 80 + r.y);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(0, 0, C.BOARD_W, 40);
+      ctx.fillStyle = '#ffe680'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('铺设草地…', 270, 28);
+    }
+    if (state.cutscene.kind === 'dave' && state.dave) {
+      const d = state.dave;
+      if (d.reanim) d.reanim.draw(ctx, 20, 60);
+      // speech bubble
+      ctx.fillStyle = 'rgba(255,255,240,0.95)';
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+      roundRect(ctx, 160, 40, 340, 110, 12); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#222'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left';
+      wrapText(ctx, d.text || '', 175, 70, 310, 22);
+      ctx.fillStyle = '#666'; ctx.font = '13px sans-serif';
+      ctx.fillText('点击继续 ▶', 400, 140);
+    }
+  }
+
   if (state.scene === 'won') {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
     ctx.fillStyle = '#ffe680'; ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center';
@@ -893,10 +1102,37 @@ function draw() {
 
 let last = performance.now();
 let acc = 0;
+function updateCutscene() {
+  const cs = state.cutscene;
+  if (!cs) return;
+  if (cs.kind === 'sod') {
+    // ~100Hz: 3 steps of +10 per animation frame
+    for (let i = 0; i < 3; i++) {
+      cs.t += 10;
+      if (cs.t === Cut.SOD.TimeRollSodStart) playSfx('plant', 0.5);
+    }
+    cs.sodPos = Cut.sodPosition(cs.t);
+    for (const r of cs.rolls || []) r.update(1);
+    for (const fx of state.fx) fx.update(1);
+    const target = C.sodRowsForLevel(state.level);
+    const prev = target === 1 ? 0 : target === 3 ? 1 : 3;
+    state.sodRows = cs.sodPos >= 800 ? target : prev;
+    if (cs.t >= Cut.SOD.TimeRollSodEnd) {
+      state.sodRows = target;
+      if (state.level === 1) { startDave([1001, 1002, 1003]); return; }
+      finishCutsceneToPlay();
+    }
+  } else if (cs.kind === 'dave') {
+    const d = state.dave;
+    if (d?.reanim) d.reanim.update(1);
+  }
+}
+
 function frame(now) {
   window.__PVZ = { get state(){return state;}, assets, reanimLib, C };
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  if (state.scene === 'cutscene') updateCutscene();
   if (state.scene === 'playing' && !state.paused) {
     acc += dt * C.TICK_HZ;
     if (acc > 5) acc = 5;

@@ -1,0 +1,57 @@
+{
+  "FONT_DWARVENTODCRAFT15": {
+    "file": "assets/fonts/FONT_DWARVENTODCRAFT15.json",
+    "image": "assets/fonts/images/IMAGE_FONT_DWARVENTODCRAFT15.png",
+    "point": 15
+  },
+  "FONT_CONTINUUMBOLD14": {
+    "file": "assets/fonts/FONT_CONTINUUMBOLD14.json",
+    "image": "assets/fonts/images/IMAGE_FONT_CONTINUUMBOLD14.png",
+    "point": 14
+  },
+  "FONT_PICO129": {
+    "file": "assets/fonts/FONT_PICO129.json",
+    "image": "assets/fonts/images/IMAGE_FONT_PICO129.png",
+    "point": 9
+  },
+  "FONT_BRIANNETOD16": {
+    "file": "assets/fonts/FONT_BRIANNETOD16.json",
+    "image": "assets/fonts/images/IMAGE_FONT_BRIANNETOD16.png",
+    "point": 16
+  },
+  "FONT_DWARVENTODCRAFT24": {
+    "file": "assets/fonts/FONT_DWARVENTODCRAFT24.json",
+    "image": "assets/fonts/images/IMAGE_FONT_DWARVENTODCRAFT24.png",
+    "point": 24
+  },
+  "FONT_DWARVENTODCRAFT36GREENINSET": {
+    "file": "assets/fonts/FONT_DWARVENTODCRAFT36GREENINSET.json",
+    "image": "assets/fonts/images/IMAGE_FONT_DWARVENTODCRAFT36GREENINSET.png",
+    "point": 36
+  },
+  "FONT_HOUSEOFTERROR28": {
+    "file": "assets/fonts/FONT_HOUSEOFTERROR28.json",
+    "image": "assets/fonts/images/IMAGE_FONT_HOUSEOFTERROR28.png",
+    "point": 28
+  },
+  "FONT_PIX118BOLD": {
+    "file": "assets/fonts/FONT_PIX118BOLD.json",
+    "image": "assets/fonts/images/IMAGE_FONT_PIX118BOLD.png",
+    "point": 8
+  },
+  "FONT_DWARVENTODCRAFT18": {
+    "file": "assets/fonts/FONT_DWARVENTODCRAFT18.json",
+    "image": "assets/fonts/images/IMAGE_FONT_DWARVENTODCRAFT18.png",
+    "point": 18
+  },
+  "FONT_DWARVENTODCRAFT18YELLOW": {
+    "file": "assets/fonts/FONT_DWARVENTODCRAFT18YELLOW.json",
+    "image": "assets/fonts/images/IMAGE_FONT_DWARVENTODCRAFT18YELLOW.png",
+    "point": 18
+  },
+  "FONT_DWARVENTODCRAFT36BRIGHTGREENINSET": {
+    "file": "assets/fonts/FONT_DWARVENTODCRAFT36BRIGHTGREENINSET.json",
+    "image": "assets/fonts/images/IMAGE_FONT_DWARVENTODCRAFT36BRIGHTGREENINSET.png",
+    "point": 36
+  }
+}

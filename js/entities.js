@@ -153,3 +153,122 @@ export function updateWallnutCrack(plant) {
     plant.reanim.body.animTime = t;
   }
 }
+
+export const PHASE = {
+  NORMAL: 0, DYING: 1, BURNED: 2, MOWERED: 3,
+  POLE_PRE: 4, POLE_IN: 5, POLE_POST: 6,
+  PAPER_READ: 7, PAPER_MAD_TRANS: 8, PAPER_MAD: 9,
+};
+
+export function initZombiePhase(z) {
+  z.phase = PHASE.NORMAL;
+  z.hasHead = true;
+  z.hasPole = z.type === C.ZOMBIE.POLE;
+  if (z.type === C.ZOMBIE.POLE) {
+    z.phase = PHASE.POLE_PRE;
+    z.vel = 0.66 + Math.random() * 0.02;
+    z.baseVel = z.vel;
+  }
+  if (z.type === C.ZOMBIE.PAPER) {
+    z.phase = PHASE.PAPER_READ;
+    z.shield = z.shield || 150;
+  }
+  if (z.type === C.ZOMBIE.FOOTBALL) {
+    z.vel = 0.66 + Math.random() * 0.02;
+    z.baseVel = z.vel;
+  }
+  if (z.type === C.ZOMBIE.FLAG) {
+    z.vel = 0.45;
+    z.baseVel = z.vel;
+  }
+}
+
+/** Pole vault: FindPlantTarget ATTACKTYPE_VAULT then anim_jump — Zombie.as UpdateZombiePolevaulter */
+export function updatePolevaulter(z, plants) {
+  if (z.type !== C.ZOMBIE.POLE || !z.reanim) return;
+  if (z.phase === PHASE.POLE_PRE && z.hasHead) {
+    const plant = plants.find((p) => !p.dead && p.row === z.row && z.x < p.x + 80 && z.x > p.x - 10);
+    if (plant) {
+      z.phase = PHASE.POLE_IN;
+      if (z.reanim.mDefinition.trackNameMap.anim_jump) {
+        z.reanim.currentTrack = 'anim_jump';
+        z.reanim.loopType = Reanimation.loopOnceAndHold();
+        z.reanim.animRate = 24;
+      }
+      const dur = Math.max(1, z.reanim.mFrameCount / z.reanim.animRate * 100);
+      z._vaultVel = (z.x - plant.x - 54) / dur;
+      z.hasPole = false;
+      // hide pole tracks if present
+      for (const n of Object.keys(z.reanim.mDefinition.trackNameMap)) {
+        if (/pole/i.test(n) && !/polevaulter_body/i.test(n)) z.reanim.setTrackVisible(n, false);
+      }
+    }
+  } else if (z.phase === PHASE.POLE_IN) {
+    if (z.reanim.animTime >= 1) {
+      z.x -= 101;
+      z.phase = PHASE.POLE_POST;
+      z.reanim.currentTrack = 'anim_walk';
+      z.reanim.loopType = Reanimation.LOOP_TYPE_ALWAYS;
+      z.reanim.animRate = randRange(12, 24);
+      z.vel = randRange(0.23, 0.37);
+      z.baseVel = z.vel;
+    } else {
+      // during vault use vault velocity
+      z.x -= Math.abs(z._vaultVel || z.vel);
+    }
+  }
+}
+
+/** Newspaper: when shield gone → maddening → mad walk faster */
+export function updateNewspaper(z) {
+  if (z.type !== C.ZOMBIE.PAPER || !z.reanim) return;
+  if (z.phase === PHASE.PAPER_READ && (z.shield || 0) <= 0) {
+    z.phase = PHASE.PAPER_MAD_TRANS;
+    z.shield = 0;
+    if (z.reanim.mDefinition.trackNameMap.anim_walk_nopaper) {
+      z.reanim.currentTrack = 'anim_walk_nopaper';
+    } else if (z.reanim.mDefinition.trackNameMap.anim_gasp) {
+      z.reanim.currentTrack = 'anim_gasp';
+      z.reanim.loopType = Reanimation.loopOnceAndHold(() => {
+        z.phase = PHASE.PAPER_MAD;
+        z.reanim.currentTrack = z.reanim.mDefinition.trackNameMap.anim_walk_nopaper ? 'anim_walk_nopaper' : 'anim_walk';
+        z.reanim.loopType = Reanimation.LOOP_TYPE_ALWAYS;
+        z.vel = 0.89 + Math.random() * 0.02;
+        z.baseVel = z.vel;
+      });
+    } else {
+      z.phase = PHASE.PAPER_MAD;
+      z.vel = 0.89 + Math.random() * 0.02;
+      z.baseVel = z.vel;
+    }
+    // hide paper tracks
+    for (const n of Object.keys(z.reanim.mDefinition.trackNameMap)) {
+      if (/paper_paper/i.test(n)) z.reanim.setTrackVisible(n, false);
+    }
+  }
+  if (z.phase === PHASE.PAPER_MAD_TRANS) {
+    if (z.reanim.currentTrack === 'anim_walk_nopaper' || z.reanim.animTime >= 1) {
+      z.phase = PHASE.PAPER_MAD;
+      z.vel = 0.89 + Math.random() * 0.02;
+      z.baseVel = z.vel;
+      z.reanim.loopType = Reanimation.LOOP_TYPE_ALWAYS;
+      z.reanim.animRate = randRange(20, 28);
+    }
+  }
+}
+
+export function createCharredReanim(lib, x, y) {
+  if (!lib.defs.REANIM_ZOMBIE_CHARRED) return null;
+  const r = lib.create('REANIM_ZOMBIE_CHARRED');
+  const track = r.mDefinition.trackNameMap.anim_crumble ? 'anim_crumble'
+    : (r.mDefinition.tracks.map((t) => t.name).find((n) => n.startsWith('anim_')) || r.mDefinition.tracks[0].name);
+  r.currentTrack = track;
+  r.loopType = Reanimation.loopOnceAndHold();
+  r.animRate = 15;
+  r.x = x; r.y = y - 8;
+  return r;
+}
+
+/** Plant hitbox offsets from CPlant.GetPlantAttackRect / placement — keep reanim origin at grid cell */
+export const PLANT_DRAW_OFFSET = { x: 0, y: 0 };
+export const ZOMBIE_HIT = { x: 10, w: 33, h: 77 }; // ZombieAttackRect default
