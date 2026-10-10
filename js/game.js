@@ -967,6 +967,23 @@ function drawImg(key, x, y, w, h) {
     ctx.drawImage(im, x, y, dw, dh);
   }
 }
+/** Flash blitImage(bg, -BOARD_OFFSET, 0) on HD 2× sheets: crop source at offset×ASSET_SCALE. */
+function drawBoardBackground(img) {
+  if (!img) {
+    ctx.fillStyle = '#5a8';
+    ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
+    return;
+  }
+  const s = C.ASSET_SCALE || 2;
+  // Prefer detecting scale from actual image width (945 logical → 1890 @2×)
+  const scale = (img.naturalWidth >= 1800) ? 2 : (img.naturalWidth >= 900 ? 1 : s);
+  const ox = C.BOARD_OFFSET * scale;
+  ctx.drawImage(
+    img,
+    ox, 0, C.BOARD_W * scale, C.BOARD_H * scale,
+    0, 0, C.BOARD_W, C.BOARD_H
+  );
+}
 
 function draw() {
   ctx.clearRect(0, 0, C.BOARD_W, C.BOARD_H);
@@ -984,7 +1001,7 @@ function draw() {
   }
 
   if (state.scene === 'menu') {
-    drawImg('bg1', 0, 0, C.BOARD_W, C.BOARD_H);
+    drawBoardBackground(assets.img.bg1);
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
     drawImg('logo', 50, 20, 440, 67);
@@ -1006,18 +1023,11 @@ function draw() {
     return;
   }
 
-  // background — pan shows left house; bg is 945 wide, board shows ~540 from offset
+  // background — HD 2× sheet: crop at BOARD_OFFSET×ASSET_SCALE so lawn matches grid
   const bgKey = state.level <= 10 ? 'bg1' : 'bg2';
   const bg = assets.img[bgKey];
-  // Also prefer unsodded when sodRows < 5
   const bgUse = (state.sodRows < 5 && assets.img.bg1u) ? assets.img.bg1u : bg;
-  if (bgUse) {
-    // Flash: blitImage(bg, -BOARD_OFFSET, 0) → visible board 0..540 shows bg[148..688]
-    const ox = C.BOARD_OFFSET;
-    ctx.drawImage(bgUse, ox, 0, C.BOARD_W, C.BOARD_H, 0, 0, C.BOARD_W, C.BOARD_H);
-  } else {
-    ctx.fillStyle = '#5a8'; ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
-  }
+  drawBoardBackground(bgUse);
   // Dim locked rows for early sod-unlock levels (SWF sod roll)
   if (state.sodRows < 5) {
     const allowed = new Set(rowsAllowed());
