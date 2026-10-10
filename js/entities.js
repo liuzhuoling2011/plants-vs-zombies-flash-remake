@@ -40,14 +40,25 @@ export function createPlantReanim(lib, seed) {
   return { body, head, cfg };
 }
 
-export function plantPlayShoot(plant) {
-  if (!plant.reanim?.head) return;
+/**
+ * PeaShooter.as FindTargetAndFire:
+ *   head animRate=35 (45 repeater), currentTrack=anim_shooting,
+ *   mShootingCounter=35 (26 repeater). Pea is NOT spawned here —
+ *   Fire() runs when UpdateShooting sees counter==1 (~frame ~0.48 of shoot).
+ */
+export function plantPlayShoot(plant, isRepeater = false) {
+  if (!plant.reanim?.head) {
+    // Puff etc. without head: still set counter so pea fires on schedule
+    plant.shootingCounter = isRepeater ? 26 : 35;
+    return;
+  }
   const head = plant.reanim.head;
-  const rate = Math.max(24, plant.reanim.body.animRate || 12);
-  // playTrack resets animTime; anim_shooting = frames 50–74 (mouth puff)
-  head.currentTrack = 'anim_shooting';
+  const idleRate = plant.reanim.body.animRate || 15;
+  const rate = isRepeater ? 45 : 35;
   head.animRate = rate;
-  head.loopType = Reanimation.loopOnceAndIdle('anim_head_idle', rate);
+  head.currentTrack = 'anim_shooting';
+  head.loopType = Reanimation.loopOnceAndIdle('anim_head_idle', idleRate);
+  plant.shootingCounter = isRepeater ? 26 : 35;
 }
 
 export function createZombieReanim(lib, type) {
@@ -169,6 +180,7 @@ export const PHASE = {
 export function initZombiePhase(z) {
   z.phase = PHASE.NORMAL;
   z.hasHead = true;
+  z.hasArm = true;
   z.hasPole = z.type === C.ZOMBIE.POLE;
   if (z.type === C.ZOMBIE.POLE) {
     z.phase = PHASE.POLE_PRE;
@@ -273,6 +285,70 @@ export function createCharredReanim(lib, x, y) {
   r.animRate = 15;
   r.x = x; r.y = y - 8;
   return r;
+}
+
+
+/** Zombie.as UpdateDamageStates / DropArm / DropHead — body HP fractions */
+export function getBodyDamageIndex(z) {
+  const max = z.maxHp || 270;
+  const hp = Math.max(0, z.hp);
+  if (hp < max / 3) return 2;
+  if (hp < max * 2 / 3) return 1;
+  return 0;
+}
+
+export function dropArm(z, spawnFx, playSfx) {
+  if (!z.hasArm || !z.reanim) return;
+  // Door/newspaper shield blocks arm drop (Zombie.as DropArm)
+  if (z.type === C.ZOMBIE.DOOR || (z.type === C.ZOMBIE.PAPER && (z.shield || 0) > 0)) return;
+  z.hasArm = false;
+  const hide = [];
+  if (z.type === C.ZOMBIE.PAPER) {
+    hide.push('Zombie_paper_hands', 'Zombie_paper_leftarm_lower', 'Zombie_paper_hands2');
+  } else if (z.type === C.ZOMBIE.POLE) {
+    hide.push('Zombie_polevaulter_outerarm_lower', 'Zombie_outerarm_hand');
+  } else if (z.type === C.ZOMBIE.FOOTBALL) {
+    hide.push('zombie_football_rightarm_lower', 'zombie_football_rightarm_hand');
+  } else {
+    hide.push('Zombie_outerarm_lower', 'Zombie_outerarm_hand');
+  }
+  for (const n of hide) z.reanim.setTrackVisible(n, false);
+  // Arm particle + limbs Foley (normal zombies)
+  let fx = 'PARTICLE_ZOMBIEARM';
+  if (z.type === C.ZOMBIE.POLE) fx = 'PARTICLE_ZOMBIEPOLEVAULTARM';
+  else if (z.type === C.ZOMBIE.FOOTBALL) fx = 'PARTICLE_ZOMBIEFOOTBALLARM';
+  if (spawnFx) spawnFx(fx, z.x + 20, z.y + 55);
+  if (playSfx) playSfx('limbs', 0.4);
+}
+
+export function dropHead(z, spawnFx, playSfx) {
+  if (!z.hasHead || !z.reanim) return;
+  z.hasHead = false;
+  const hide = ['anim_head1', 'anim_head2', 'anim_hair', 'anim_tongue'];
+  if (z.type === C.ZOMBIE.PAPER) {
+    hide.push('anim_hairpiece', 'anim_head_jaw', 'anim_head_glasses', 'anim_head_look', 'anim_head_pupils');
+  }
+  for (const n of hide) z.reanim.setTrackVisible(n, false);
+  let fx = 'PARTICLE_ZOMBIEHEAD';
+  if (z.type === C.ZOMBIE.POLE) fx = 'PARTICLE_ZOMBIEPOLEVALUTHEAD';
+  else if (z.type === C.ZOMBIE.FOOTBALL) fx = 'PARTICLE_ZOMBIEFOOTBALLHEAD';
+  else if (z.type === C.ZOMBIE.PAPER) fx = 'PARTICLE_ZOMBIENEWSPAPERHEAD';
+  if (spawnFx) spawnFx(fx, z.x + 15, z.y + 20);
+  if (playSfx) playSfx('limbs', 0.45);
+}
+
+/** Call after body HP changes (helm/shield already peeled). */
+export function updateDamageStates(z, spawnFx, playSfx) {
+  if (z.dead || z._dying) return;
+  const max = z.maxHp || 270;
+  if (max <= 0) return;
+  const healthLeft = z.hp / max;
+  if (z.hasArm && healthLeft <= 0.66 && z.hp > 0) {
+    dropArm(z, spawnFx, playSfx);
+  }
+  if (z.hasHead && healthLeft <= 0.33) {
+    dropHead(z, spawnFx, playSfx);
+  }
 }
 
 /** Plant hitbox offsets from CPlant.GetPlantAttackRect / placement — keep reanim origin at grid cell */

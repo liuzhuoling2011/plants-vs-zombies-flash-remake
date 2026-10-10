@@ -65,3 +65,15 @@ Unrecoverable listed in GAPS.md (Scary Potter/Bowling incomplete in this Flash b
 - Plant: reanim at GridToPixel; `IMAGE_PLANTSHADOW` under feet (ox=-2, oy=46).
 - Afterimages: death once→fade→remove; particle force-clear after duration+60; purge dead zombies.
 - Pages cache: `?v=align6`
+
+## Combat/trail fix (combat1) — 2026-10-10
+- Root cause of green/brown trails: particle emitters clamped `age` to `duration-1` while `SpawnMinActive` kept respawning (planting dirt, maxLaunch=-1) → infinite debris stream.
+- Fix: `_dying` stops spawning; age keeps increasing; force-clear after grace; hard age cap.
+- Shoot: head `anim_shooting` + THROW1/2/3 Foley.
+- Hit: `shotFlash` brightness flash + recoil + SPLAT/2/3 Foley + PEASPLAT (dies cleanly).
+- Cache: `?v=combat1`
+
+## Shoot sync + zombie damage stages (combat2) — 2026-10-10
+- PeaShooter.as: FindTargetAndFire sets anim_shooting rate 35 + shootingCounter 35; Fire when counter==1 (animTime≈0.48).
+- Zombie.as UpdateDamageStates: DropArm at body HP≤66%, DropHead at ≤33%; hide reanim tracks + PARTICLE_ZOMBIEARM/HEAD + limbs Foley.
+- Cache: `?v=combat2`

@@ -294,7 +294,7 @@ function plantAt(col, row, seed) {
     x: C.gridToPixelX(col), y: C.gridToPixelY(row),
     hp, maxHp: hp,
     launch, launchCD: randInt(0, Math.min(launch, 300)),
-    dead: false, age: 0, state: 0, flash: 0,
+    dead: false, age: 0, state: 0, flash: 0, shootingCounter: 0,
     reanim: null,
   };
   plant.reanim = Ent.createPlantReanim(reanimLib, seed);
@@ -417,6 +417,10 @@ function damageZombie(z, dmg, freeze, opts = {}) {
   }
   if (left > 0) z.hp -= left;
   Ent.updateNewspaper(z);
+  // Body HP stages: arm @ ≤66%, head @ ≤33% (Zombie.UpdateDamageStates)
+  if (left > 0) {
+    Ent.updateDamageStates(z, spawnFx, playSfx);
+  }
   if (z.hp <= 0 && !z._dying) {
     playSfx('limbs', 0.3);
     if (opts.burn) {
@@ -478,18 +482,22 @@ function updatePlaying(dtTicks) {
           p.launchCD = randInt(p.launch - 150, p.launch);
         }
       } else if (seed === C.SEED.PEASHOOTER || seed === C.SEED.SNOWPEA || seed === C.SEED.REPEATER || seed === C.SEED.PUFFSHROOM) {
-        const foe = state.zombies.find((z) => !z.dead && z.row === p.row && z.x > p.x && z.x < C.BOARD_W + 40);
-        if (foe && p.launchCD <= 0) {
-          addPea(p, seed === C.SEED.SNOWPEA);
-          Ent.plantPlayShoot(p);
-          if (seed === C.SEED.REPEATER) {
-            p._double = 20;
+        // PeaShooter.as UpdateShooter + UpdateShooting:
+        // launchCD→0 starts shoot anim; pea spawns when shootingCounter hits 1
+        const foe = state.zombies.find((z) => !z.dead && !z._dying && z.row === p.row && z.x > p.x && z.x < C.BOARD_W + 40);
+        // UpdateShooting first (same order as PeaShooter.Update: UpdateShooting then UpdateShooter)
+        if (p.shootingCounter > 0) {
+          p.shootingCounter--;
+          if (p.shootingCounter === 1) {
+            addPea(p, seed === C.SEED.SNOWPEA);
           }
-          p.launchCD = p.launch - Math.random() * 15;
         }
-        if (p._double > 0) {
-          p._double--;
-          if (p._double === 0) addPea(p, false);
+        if (foe && p.launchCD <= 0) {
+          Ent.plantPlayShoot(p, seed === C.SEED.REPEATER);
+          p.launchCD = p.launch - Math.random() * 15;
+        } else if (seed === C.SEED.REPEATER && foe && p.launchCD === 25) {
+          // Repeater second shot in the launch cycle
+          Ent.plantPlayShoot(p, true);
         }
       } else if (seed === C.SEED.CHERRYBOMB) {
         if (p.age === 80) {
@@ -593,7 +601,8 @@ function updatePlaying(dtTicks) {
           continue;
         }
       }
-      if (plant && !(plant.seed === C.SEED.CHERRYBOMB || plant.seed === C.SEED.SQUASH)) {
+      // SWF: eating requires mHasHead
+      if (plant && z.hasHead !== false && !(plant.seed === C.SEED.CHERRYBOMB || plant.seed === C.SEED.SQUASH)) {
         z.eating = true;
         Ent.zombieSetEating(z, true);
         if (z.age % C.TICKS_BETWEEN_EATS === 0) {
