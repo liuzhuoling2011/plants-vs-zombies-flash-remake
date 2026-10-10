@@ -80,7 +80,7 @@ async function loadAll() {
       if (assets.ac) assets.buffers[name] = await assets.ac.decodeAudioData(b);
     } catch (_) {}
   }
-  await Promise.all(['plant','throw','chomp','groan','gulp','shovel','points','seedlift','explosion','awooga','readysetplant','tap','buttonclick','frozen','siren','limbs'].map(loadSfx));
+  await Promise.all(['plant','throw','throw1','throw2','throw3','splat','splat2','splat3','chomp','groan','gulp','shovel','points','seedlift','explosion','awooga','readysetplant','tap','buttonclick','frozen','siren','limbs'].map(loadSfx));
   assets.bgm = new Audio('assets/music/grasswalk.mp3');
   assets.bgm.loop = true; assets.bgm.volume = 0.45;
   assets.menuBgm = new Audio('assets/music/loonboon.mp3');
@@ -97,6 +97,12 @@ function playSfx(name, vol = 1) {
   s.buffer = assets.buffers[name];
   s.connect(g); g.connect(assets.ac.destination);
   s.start();
+}
+/** Pick one of several SFX names (SWF FoleyType multi-sample). */
+function playFoley(names, vol = 1) {
+  const ok = names.filter((n) => assets.buffers[n]);
+  if (!ok.length) return;
+  playSfx(ok[(Math.random() * ok.length) | 0], vol);
 }
 function spawnFx(key, x, y) {
   try {
@@ -378,12 +384,15 @@ function addPea(plant, snow) {
   state.projectiles.push({
     x, y, row: plant.row, snow: !!snow, dead: false,
   });
-  playSfx('throw', 0.35);
+  // PVZFoleyType.THROW → SOUND_THROW1/2/3
+  playFoley(['throw', 'throw1', 'throw2', 'throw3'], 0.45);
 }
 
 function damageZombie(z, dmg, freeze, opts = {}) {
   if (!z || z.dead || z._dying) return;
   if (freeze) z.chilled = Math.max(z.chilled || 0, 1000);
+  // Zombie.as TakeDamage → mJustGotShotCounter = 25 (white flash)
+  if (!opts.noFlash) z.shotFlash = 25;
   let left = dmg;
   if (z.shield > 0) {
     const take = Math.min(z.shield, left);
@@ -537,8 +546,12 @@ function updatePlaying(dtTicks) {
         if (z.dead || z.row !== pr.row) continue;
         if (pr.x > z.x + 10 && pr.x < z.x + 50) {
           damageZombie(z, C.PROJECTILE_DAMAGE, pr.snow);
-          spawnFx(pr.snow ? 'PARTICLE_SNOWPEASPLAT' : 'PARTICLE_PEASPLAT', pr.x, pr.y);
+          // brief recoil nudge (hit reaction)
+          z.x += 1.5;
+          spawnFx(pr.snow ? 'PARTICLE_SNOWPEASPLAT' : 'PARTICLE_PEASPLAT', pr.x, pr.y + 4);
           if (pr.snow) spawnFx('PARTICLE_ICESPARKLE', pr.x, pr.y);
+          // PVZFoleyType.SPLAT → SOUND_SPLAT/2/3
+          playFoley(['splat', 'splat2', 'splat3'], 0.55);
           if (pr.snow) playSfx('frozen', 0.25);
           pr.dead = true;
           break;
@@ -553,6 +566,7 @@ function updatePlaying(dtTicks) {
       z.age++;
       z.bob += 0.08;
       if (z.chilled > 0) z.chilled--;
+      if (z.shotFlash > 0) z.shotFlash--;
       const plant = state.plants.find((p) => !p.dead && p.row === z.row && (z.x + Ent.ZOMBIE_HIT.x) < p.x + 48 && (z.x + Ent.ZOMBIE_HIT.x + Ent.ZOMBIE_HIT.w) > p.x + 6);
       if (z._dying) {
         z._deathAge = (z._deathAge || 0) + 1;
@@ -670,7 +684,11 @@ function updatePlaying(dtTicks) {
     }
     state.charred = state.charred.filter((c) => !c._gone);
     // Cap live FX so splats cannot pile into ghosts
-    if (state.fx.length > 40) state.fx.splice(0, state.fx.length - 40);
+    state.fx = state.fx.filter((f) => !f.dead);
+    if (state.fx.length > 24) {
+      // Drop oldest first
+      state.fx.splice(0, state.fx.length - 24);
+    }
 
     // win check
     if (state.wave >= state.numWaves && state.waveCD < 0 && state.zombies.length === 0) {
@@ -978,7 +996,14 @@ function draw() {
     if (z.reanim) {
       if (z.chilled > 0) z.reanim.overrideRGB = [0.55, 0.8, 1];
       else z.reanim.overrideRGB = [1, 1, 1];
+      ctx.save();
+      // mJustGotShotCounter flash → brighten
+      if (z.shotFlash > 0) {
+        const f = Math.min(1, z.shotFlash * 10 / 255);
+        ctx.filter = `brightness(${1 + f * 1.8})`;
+      }
       z.reanim.draw(ctx, z.x, zy);
+      ctx.restore();
     } else if (!z._dying) {
       const bob = Math.sin(z.bob) * 2;
       const im = assets.img[z.img] || assets.img.zNormal;
@@ -994,14 +1019,12 @@ function draw() {
     }
   }
 
-  // peas
+  // peas — clean sprite only (no shadow strip trails)
   for (const pr of state.projectiles) {
-    const psh = assets.img.pea_shadows;
-    if (psh) {
-      ctx.globalAlpha = 0.45;
-      ctx.drawImage(psh, pr.x - 4, pr.y + 12, 20, 6);
-      ctx.globalAlpha = 1;
-    }
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(pr.x + 7, pr.y + 16, 8, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
     drawImg(pr.snow ? 'snowpea' : 'pea', pr.x, pr.y, 14, 14);
   }
 

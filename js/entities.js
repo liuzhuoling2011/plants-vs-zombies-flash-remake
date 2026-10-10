@@ -43,8 +43,10 @@ export function createPlantReanim(lib, seed) {
 export function plantPlayShoot(plant) {
   if (!plant.reanim?.head) return;
   const head = plant.reanim.head;
-  const rate = plant.reanim.body.animRate;
+  const rate = Math.max(24, plant.reanim.body.animRate || 12);
+  // playTrack resets animTime; anim_shooting = frames 50–74 (mouth puff)
   head.currentTrack = 'anim_shooting';
+  head.animRate = rate;
   head.loopType = Reanimation.loopOnceAndIdle('anim_head_idle', rate);
 }
 

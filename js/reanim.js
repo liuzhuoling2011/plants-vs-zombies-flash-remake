@@ -76,7 +76,7 @@ const LOOP_ALWAYS = {
 function loopOnceAndIdle(idleTrack, idleRate) {
   return {
     updatePositive(r) {
-      if (r.animTime > 1) {
+      if (r.animTime >= 1) {
         r.animTime = 0;
         r.currentTrack = idleTrack;
         r.loopType = LOOP_ALWAYS;

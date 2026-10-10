@@ -91,6 +91,8 @@ export class ParticleLibrary {
     const raw = await (await fetch(meta.file)).json();
     for (const e of raw.emitters) {
       e._img = e.image ? this.images[e.image] || null : null;
+      e.particleFields = e.particleFields || [];
+      e.systemFields = e.systemFields || [];
       for (const pn of Object.keys(e.params)) e.params[pn] = trackDefault(e.params[pn], 0);
     }
     this.defs[key] = raw;
@@ -126,6 +128,7 @@ class Emitter {
     this.duration = Math.max(1, Math.round(dur));
     this._loops = !!(edef.flags & 8); // SYSTEM_LOOPS
     this.dead = false;
+    this._dying = false;
     this.spawnAccum = 0;
     this.launched = 0;
     this.systemCenterX = system.x;
@@ -134,22 +137,27 @@ class Emitter {
   update() {
     if (this.dead) return;
     this.age++;
-    let die = false;
+    // SYSTEM_LOOPS: wrap; else mark dying and NEVER clamp age (old clamp + SpawnMinActive = infinite trails)
     if (this.age >= this.duration) {
       if (this._loops) this.age = 0;
-      else { this.age = this.duration - 1; die = true; }
+      else this._dying = true;
     }
-    const t = this.age / Math.max(1, this.duration - 1);
-    for (const p of this.particles) this.updateParticle(p, t);
+    const t = Math.min(1, this.age / Math.max(1, this.duration - 1));
+    for (const p of this.particles) this.updateParticle(p);
     this.particles = this.particles.filter((p) => !p.dead);
-    this.updateSpawning(t);
-    if (die) {
+    // Stop spawning once the system lifetime ends — this was the afterimage root cause
+    if (!this._dying) this.updateSpawning(t);
+    if (this._dying) {
       if (this.particles.length === 0) this.dead = true;
-      else if (this.age > this.duration + 60) {
-        // Force-clear stuck particles (prevents splat afterimages)
+      else if (this.age > this.duration + 40) {
         this.particles.length = 0;
         this.dead = true;
       }
+    }
+    // Absolute safety: no emitter lives forever
+    if (this.age > Math.max(this.duration, 1) + 300) {
+      this.particles.length = 0;
+      this.dead = true;
     }
   }
   updateSpawning(sysT) {
@@ -200,7 +208,9 @@ class Emitter {
     p.vy = Math.sin(angle) * speed;
     // Interps for color/scale tracks
     p.interp = Array.from({ length: 20 }, () => Math.random());
-    p.fieldInterp = d.particleFields.map(() => [Math.random(), Math.random()]);
+    p.fieldInterp = (d.particleFields || []).map(() => [Math.random(), Math.random()]);
+    const nFrames = Math.max(1, d.imageFrames || 1);
+    p._frame = nFrames > 1 ? (Math.random() * nFrames) | 0 : 0;
     this.particles.push(p);
     this.launched++;
   }
@@ -210,8 +220,9 @@ class Emitter {
     p.lastTimeValue = p.timeValue;
     p.timeValue = p.age / Math.max(1, p.duration - 1);
     const t = p.timeValue;
-    for (let i = 0; i < this.def.particleFields.length; i++) {
-      const f = this.def.particleFields[i];
+    const fields = this.def.particleFields || [];
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i];
       const ix = p.fieldInterp[i][0], iy = p.fieldInterp[i][1];
       const fx = evalTrack(f.x, t, ix), fy = evalTrack(f.y, t, iy);
       switch (f.type | 0) {
@@ -261,9 +272,14 @@ class Emitter {
       if (scale === 0) scale = 1;
       const brightness = evalTrack(d.params.ParticleBrightness, t, p.interp[4] || 0) || 1;
       let frame = 0;
-      if (d.animated && frames > 1) {
-        const rate = evalTrack(d.params.AnimationRate, t, p.interp[5] || 0) || 1;
-        frame = Math.floor(p.age * rate * SECONDS_PER_UPDATE * frames) % frames;
+      if (frames > 1) {
+        if (d.animated) {
+          const rate = evalTrack(d.params.AnimationRate, t, p.interp[5] || 0) || 1;
+          frame = Math.floor(p.age * rate * SECONDS_PER_UPDATE * frames) % frames;
+        } else {
+          // PopCap: non-animated multi-frame → pick one cell (random at launch)
+          frame = (p._frame | 0) % frames;
+        }
       }
       ctx.save();
       ctx.translate(p.x, p.y);
