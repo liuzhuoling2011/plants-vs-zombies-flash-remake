@@ -3,6 +3,7 @@
  * Matrix: a=cos(kX)*sX, b=-sin(kX)*sX, c=sin(kY)*sY, d=cos(kY)*sY, tx=tX, ty=tY
  * Draw: BitmapData.draw with matrix translated by (mX,mY)
  */
+import { ASSET_SCALE } from './constants.js';
 export const SECONDS_PER_UPDATE = 0.01;
 
 export class ReanimLibrary {
@@ -11,23 +12,23 @@ export class ReanimLibrary {
     this.images = {}; // IMAGE_* -> HTMLImageElement
     this.manifest = null;
   }
+  async loadImage(key) {
+    if (this.images[key]) return this.images[key];
+    const url = this.manifest.images[key];
+    if (!url) return null;
+    try {
+      const img = new Image();
+      img.decoding = 'async';
+      const bust = url.includes('?') ? url : url + '?v=hd1';
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = bust; });
+      this.images[key] = img;
+      return img;
+    } catch (_) { return null; }
+  }
   async load(manifestUrl = 'assets/reanim/manifest.json') {
     const man = await (await fetch(manifestUrl)).json();
     this.manifest = man;
-    const imgEntries = Object.entries(man.images);
-    // Load images in batches
-    const batch = 40;
-    for (let i = 0; i < imgEntries.length; i += batch) {
-      await Promise.all(imgEntries.slice(i, i + batch).map(async ([key, url]) => {
-        try {
-          const img = new Image();
-          img.decoding = 'async';
-          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-          this.images[key] = img;
-        } catch (_) { /* missing part ok */ }
-      }));
-    }
-    // Lazy-load defs on demand; preload major ones
+    // Only preload defs used in early gameplay; images load per-def (much less network)
     const preload = [
       'REANIM_PEASHOOTERSINGLE','REANIM_PEASHOOTER','REANIM_SUNFLOWER','REANIM_WALLNUT',
       'REANIM_CHERRYBOMB','REANIM_SQUASH','REANIM_SNOWPEA','REANIM_CHOMPER','REANIM_PUFFSHROOM',
@@ -41,8 +42,16 @@ export class ReanimLibrary {
     if (this.defs[key]) return this.defs[key];
     const meta = this.manifest.reanims[key];
     if (!meta) throw new Error('missing reanim ' + key);
-    const raw = await (await fetch(meta.file)).json();
-    // Expand compact transforms into objects + resolve images
+    const raw = await (await fetch(meta.file + (meta.file.includes('?')?'&':'?') + 'v=hd1')).json();
+    // Collect image ids used by this def, fetch only those
+    const needed = new Set();
+    for (const tr of raw.tracks) {
+      for (const row of tr.t) {
+        const imageId = row[8];
+        if (imageId) needed.add(imageId);
+      }
+    }
+    await Promise.all([...needed].map((id) => this.loadImage(id)));
     const tracks = raw.tracks.map((tr) => {
       const transforms = tr.t.map((row) => {
         const [frame, alpha, kX, kY, sX, sY, tX, tY, imageId] = row;
@@ -281,7 +290,10 @@ export class Reanimation {
     if (this.overrideRGB[0] !== 1 || this.overrideRGB[1] !== 1 || this.overrideRGB[2] !== 1) {
       ctx.filter = 'hue-rotate(160deg) saturate(1.3)';
     }
-    ctx.drawImage(img, 0, 0);
+    // HD 2× sprites → draw at logical SWF size
+    const dw = img.naturalWidth / ASSET_SCALE;
+    const dh = img.naturalHeight / ASSET_SCALE;
+    ctx.drawImage(img, 0, 0, dw, dh);
     ctx.restore();
   }
 }

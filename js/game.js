@@ -18,10 +18,13 @@ function fitCanvas() {
   const cssH = Math.floor(C.BOARD_H * scale);
   canvas.style.width = cssW + 'px';
   canvas.style.height = cssH + 'px';
+  // Backing store = logical × DPR (sharp on retina); game stays in 540×405 space
   canvas.width = Math.floor(C.BOARD_W * dpr);
   canvas.height = Math.floor(C.BOARD_H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.imageSmoothingEnabled = false;
+  // HD 2× bitmaps downscaled into logical px — use high-quality filter, not nearest
+  ctx.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
 }
 window.addEventListener('resize', fitCanvas);
 
@@ -29,64 +32,131 @@ const assets = { img: {}, sfx: {}, music: {} };
 const reanimLib = new ReanimLibrary();
 const particleLib = new ParticleLibrary();
 const fontLib = new FontLibrary();
+
+const ASSET_VER = C.ASSET_VER || 'hd1';
+function assetUrl(path) {
+  if (!path) return path;
+  // Prefer WebP HD paths; append cache bust
+  let p = path.replace(/\\.(png|jpg|jpeg)$/i, '.webp');
+  return p + (p.includes('?') ? '&' : '?') + 'v=' + ASSET_VER;
+}
 const loadImg = (src) => new Promise((res, rej) => {
-  const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
+  const i = new Image();
+  i.decoding = 'async';
+  i.onload = () => res(i);
+  i.onerror = rej;
+  i.src = assetUrl(src);
 });
 
-async function loadAll() {
-  const imgs = {
-    bg1: 'assets/bg/background1.jpg',
-    bg1u: 'assets/bg/background1_unsodded.jpg',
-    bg2: 'assets/bg/background2.jpg',
-    title: 'assets/bg/titlescreen.jpg',
-    sod1: 'assets/bg/sod1row.jpg',
-    sod3: 'assets/bg/sod3row.jpg',
-    seedbank: 'assets/ui/seedbank.png',
-    sunbank: 'assets/ui/sunbank.png',
-    shovelbank: 'assets/ui/shovelbank.png',
-    shovel: 'assets/ui/shovel.png',
-    seedpacket: 'assets/ui/seedpacket.png',
-    flagmeter: 'assets/ui/flagmeter.png',
-    flagbar: 'assets/ui/flagmeterbar.png',
-    flagflag: 'assets/ui/flagmeterflag.png',
-    flaghead: 'assets/ui/flagmeterhead.png',
-    lawnmower: 'assets/ui/lawnmower.png',
-    plantshadow: 'assets/ui/plantshadow.png',
-    plantshadow2: 'assets/ui/plantshadow2.png',
-    pea_shadows: 'assets/ui/pea_shadows.png',
-    logo: 'assets/ui/pvz_logo.png',
-    pea: 'assets/fx/pea.png',
-    snowpea: 'assets/fx/snowpea.png',
-    sun: 'assets/fx/sun.png',
-    zNormal: 'assets/zombie/zombie_normal.png',
-    zCone: 'assets/zombie/zombie_cone.png',
-    zBucket: 'assets/zombie/zombie_bucket.png',
-    zFlag: 'assets/zombie/zombie_flag.png',
-  };
-  for (const id of C.SEED_IMG) imgs['p_' + id] = `assets/plants/${id}.png`;
-  await Promise.all(Object.entries(imgs).map(async ([k, v]) => { try { assets.img[k] = await loadImg(v); } catch(e) { console.warn('img', v, e); } }));
-  const _ld=document.getElementById('loading'); if (_ld) _ld.textContent = '正在加载骨骼动画（Reanimator）…';
-  await reanimLib.load('assets/reanim/manifest.json');
-  const _ld2=document.getElementById('loading'); if (_ld2) _ld2.textContent = '正在加载粒子与位图字体…';
-  await particleLib.load('assets/particles/manifest.json');
-  await fontLib.load('assets/fonts/manifest.json');
-  const AC = window.AudioContext || window.webkitAudioContext;
-  assets.ac = AC ? new AC() : null;
-  assets.buffers = {};
-  async function loadSfx(name) {
-    try {
-      const r = await fetch('assets/sfx/' + name + '.mp3');
-      const b = await r.arrayBuffer();
-      if (assets.ac) assets.buffers[name] = await assets.ac.decodeAudioData(b);
-    } catch (_) {}
+function setLoadUI(pct, label) {
+  const bar = document.getElementById('loadbar-fill');
+  const ld = document.getElementById('loading');
+  if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  if (ld) ld.textContent = label || '';
+}
+
+async function loadImages(map, weightStart, weightEnd) {
+  const entries = Object.entries(map);
+  let done = 0;
+  await Promise.all(entries.map(async ([k, v]) => {
+    try { assets.img[k] = await loadImg(v); } catch (e) { console.warn('img', v, e); }
+    done++;
+    const t = weightStart + (weightEnd - weightStart) * (done / entries.length);
+    setLoadUI(t * 100, `加载图片 ${done}/${entries.length}…`);
+  }));
+}
+
+async function loadSfxList(names, weightStart, weightEnd) {
+  if (!assets.ac) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    assets.ac = AC ? new AC() : null;
   }
-  await Promise.all(['plant','throw','throw1','throw2','throw3','splat','splat2','splat3','chomp','groan','gulp','shovel','points','seedlift','explosion','awooga','readysetplant','tap','buttonclick','frozen','siren','limbs'].map(loadSfx));
-  assets.bgm = new Audio('assets/music/grasswalk.mp3');
+  if (!assets.buffers) assets.buffers = {};
+  let done = 0;
+  await Promise.all(names.map(async (name) => {
+    try {
+      const r = await fetch(assetUrl('assets/sfx/' + name + '.mp3'));
+      const b = await r.arrayBuffer();
+      if (assets.ac) assets.buffers[name] = await assets.ac.decodeAudioData(b.slice(0));
+    } catch (_) {}
+    done++;
+    const t = weightStart + (weightEnd - weightStart) * (done / names.length);
+    setLoadUI(t * 100, `加载音效 ${done}/${names.length}…`);
+  }));
+}
+
+/** Phase A — title / first paint (small). */
+async function loadTitlePack() {
+  setLoadUI(2, '准备标题画面…');
+  await loadImages({
+    title: 'assets/bg/titlescreen.webp',
+    logo: 'assets/ui/pvz_logo.webp',
+  }, 0.02, 0.12);
+  await loadSfxList(['tap', 'buttonclick'], 0.12, 0.18);
+}
+
+/** Phase B — playable core (bg, UI, plants icons, core reanim). */
+async function loadPlayPack() {
+  const imgs = {
+    bg1: 'assets/bg/background1.webp',
+    bg1u: 'assets/bg/background1_unsodded.webp',
+    bg2: 'assets/bg/background2.webp',
+    sod1: 'assets/bg/sod1row.webp',
+    sod3: 'assets/bg/sod3row.webp',
+    seedbank: 'assets/ui/seedbank.webp',
+    sunbank: 'assets/ui/sunbank.webp',
+    shovelbank: 'assets/ui/shovelbank.webp',
+    shovel: 'assets/ui/shovel.webp',
+    seedpacket: 'assets/ui/seedpacket.webp',
+    flagmeter: 'assets/ui/flagmeter.webp',
+    flagbar: 'assets/ui/flagmeterbar.webp',
+    flagflag: 'assets/ui/flagmeterflag.webp',
+    flaghead: 'assets/ui/flagmeterhead.webp',
+    lawnmower: 'assets/ui/lawnmower.webp',
+    plantshadow: 'assets/ui/plantshadow.webp',
+    plantshadow2: 'assets/ui/plantshadow2.webp',
+    pea_shadows: 'assets/ui/pea_shadows.webp',
+    pea: 'assets/fx/pea.webp',
+    snowpea: 'assets/fx/snowpea.webp',
+    sun: 'assets/fx/sun.webp',
+    zNormal: 'assets/zombie/zombie_normal.webp',
+    zCone: 'assets/zombie/zombie_cone.webp',
+    zBucket: 'assets/zombie/zombie_bucket.webp',
+    zFlag: 'assets/zombie/zombie_flag.webp',
+  };
+  for (const id of C.SEED_IMG) imgs['p_' + id] = `assets/plants/${id}.webp`;
+  await loadImages(imgs, 0.18, 0.45);
+  setLoadUI(48, '加载骨骼动画…');
+  await reanimLib.load(assetUrl('assets/reanim/manifest.json'));
+  setLoadUI(72, '加载粒子…');
+  await particleLib.load(assetUrl('assets/particles/manifest.json'));
+  setLoadUI(82, '加载字体…');
+  await fontLib.load('assets/fonts/manifest.json');
+  await loadSfxList([
+    'plant','throw','throw1','throw2','throw3','splat','splat2','splat3',
+    'chomp','groan','gulp','shovel','points','seedlift','explosion',
+    'awooga','readysetplant','frozen','siren','limbs',
+  ], 0.85, 0.95);
+  setLoadUI(96, '即将开始…');
+}
+
+/** Phase C — BGM deferred until first play (slow-net friendly). */
+let _bgmReady = false;
+function ensureBgm() {
+  if (_bgmReady) return;
+  _bgmReady = true;
+  assets.bgm = new Audio(assetUrl('assets/music/grasswalk.mp3'));
   assets.bgm.loop = true; assets.bgm.volume = 0.45;
-  assets.menuBgm = new Audio('assets/music/loonboon.mp3');
+  assets.menuBgm = new Audio(assetUrl('assets/music/loonboon.mp3'));
   assets.menuBgm.loop = true; assets.menuBgm.volume = 0.4;
-  assets.winBgm = new Audio('assets/music/winmusic.mp3'); assets.winBgm.volume = 0.5;
-  assets.loseBgm = new Audio('assets/music/losemusic.mp3'); assets.loseBgm.volume = 0.5;
+  assets.winBgm = new Audio(assetUrl('assets/music/winmusic.mp3')); assets.winBgm.volume = 0.5;
+  assets.loseBgm = new Audio(assetUrl('assets/music/losemusic.mp3')); assets.loseBgm.volume = 0.5;
+}
+
+async function loadAll() {
+  // Kept for compatibility — prefer phased calls from main()
+  await loadTitlePack();
+  await loadPlayPack();
 }
 
 function playSfx(name, vol = 1) {
@@ -113,8 +183,11 @@ function spawnFx(key, x, y) {
 
 
 function unlockAudio() {
+  ensureBgm();
   if (assets.ac && assets.ac.state === 'suspended') assets.ac.resume();
 }
+function withBgm(fn) { ensureBgm(); try { fn(); } catch (_) {} }
+
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return (a + Math.floor(Math.random() * (b - a + 1))) | 0; }
@@ -231,6 +304,7 @@ function initLevel(level) {
     // Crazy Dave greeting (dialog indices from CrazyDaveState)
     startDave([1001, 1002, 1003]);
   } else {
+    ensureBgm();
     try { assets.menuBgm.pause(); assets.loseBgm.pause(); assets.winBgm.pause(); } catch(_){}
     assets.bgm.currentTime = 0;
     assets.bgm.play().catch(() => {});
@@ -265,6 +339,7 @@ function finishCutsceneToPlay() {
     reanim: Ent.createMowerReanim(reanimLib),
   }));
   state.scene = 'playing';
+  ensureBgm();
   try { assets.menuBgm.pause(); assets.loseBgm.pause(); assets.winBgm.pause(); } catch(_){}
   assets.bgm.currentTime = 0;
   assets.bgm.play().catch(() => {});
@@ -639,7 +714,7 @@ function updatePlaying(dtTicks) {
       if (z.x < -40) {
         // house entered
         state.scene = 'lost';
-        try { assets.bgm.pause(); assets.loseBgm.currentTime = 0; assets.loseBgm.play(); } catch(_){}
+        ensureBgm(); try { assets.bgm.pause(); assets.loseBgm.currentTime = 0; assets.loseBgm.play(); } catch(_){}
         return;
       }
     }
@@ -714,7 +789,7 @@ function updatePlaying(dtTicks) {
         const next = Math.min(20, state.level + 1);
         if (next > state.maxLevel) { state.maxLevel = next; writeSave({ maxLevel: next }); }
         writeSave({ level: next });
-        try { assets.bgm.pause(); assets.winBgm.currentTime = 0; assets.winBgm.play(); } catch(_){}
+        ensureBgm(); try { assets.bgm.pause(); assets.winBgm.currentTime = 0; assets.winBgm.play(); } catch(_){}
         return;
       }
     }
@@ -757,7 +832,7 @@ function onPointer(x, y, isDown) {
   if (state.scene === 'title') {
     state.scene = 'menu';
     playSfx('buttonclick');
-    try { assets.menuBgm.play(); } catch(_){}
+    ensureBgm(); try { assets.menuBgm.play(); } catch(_){}
     return;
   }
   if (state.scene === 'menu') {
@@ -856,7 +931,7 @@ canvas.addEventListener('touchmove', (e) => { e.preventDefault(); const p = canv
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.scene === 'playing') {
     state.scene = 'menu';
-    try { assets.bgm.pause(); assets.menuBgm.play(); } catch(_){}
+    ensureBgm(); try { assets.bgm.pause(); assets.menuBgm.play(); } catch(_){}
   }
   if (e.key === 'p' || e.key === 'P') state.paused = !state.paused;
 });
@@ -886,7 +961,11 @@ function drawImg(key, x, y, w, h) {
   const im = assets.img[key];
   if (!im) return;
   if (w != null) ctx.drawImage(im, x, y, w, h);
-  else ctx.drawImage(im, x, y);
+  else {
+    const dw = im.naturalWidth / (C.ASSET_SCALE || 2);
+    const dh = im.naturalHeight / (C.ASSET_SCALE || 2);
+    ctx.drawImage(im, x, y, dw, dh);
+  }
 }
 
 function draw() {
@@ -1248,15 +1327,26 @@ function frame(now) {
 
 export async function main() {
   fitCanvas();
-  const loading = document.getElementById('loading');
   try {
-    await loadAll();
+    await loadTitlePack();
+    setLoadUI(18, '标题已就绪，继续加载游戏…');
+    // Show title early while play pack loads
+    state.scene = 'title';
+    requestAnimationFrame(frame);
+    await loadPlayPack();
+    setLoadUI(100, '加载完成！');
   } catch (e) {
     console.error(e);
+    setLoadUI(100, '部分资源加载失败，仍可尝试游玩');
   }
   const sv = loadSave();
   state.maxLevel = sv.maxLevel || 1;
+  const shell = document.getElementById('loadshell');
+  if (shell) {
+    shell.style.opacity = '0';
+    setTimeout(() => shell.remove(), 400);
+  }
+  const loading = document.getElementById('loading');
   if (loading) loading.remove();
-  requestAnimationFrame(frame);
 }
 main();

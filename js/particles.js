@@ -1,3 +1,4 @@
+import { ASSET_SCALE } from './constants.js';
 /** PopCap particle system — evidence from ByteParticleDescriptor + ParticleEmitter.as */
 const SECONDS_PER_UPDATE = 0.01;
 const CURVE = {0:'CONSTANT',1:'LINEAR',2:'EASE_IN',3:'EASE_OUT',4:'EASE_IN_OUT',5:'EASE_IN_OUT_WEAK',6:'FAST_IN_OUT',7:'FAST_IN_OUT_WEAK',8:'BOUNCE',9:'BOUNCE_FAST_MIDDLE',10:'BOUNCE_SLOW_MIDDLE',11:'SIN_WAVE',12:'EASE_SIN_WAVE'};
@@ -54,10 +55,20 @@ function trackDefault(nodes, def) {
 
 export class ParticleLibrary {
   constructor() { this.defs = {}; this.images = {}; this.manifest = null; }
+  async loadImage(key) {
+    if (this.images[key]) return this.images[key];
+    let path = this.manifest.images[key];
+    if (!path) return null;
+    try {
+      const img = new Image();
+      const bust = path.includes('?') ? path : path + '?v=hd1';
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = bust; });
+      this.images[key] = img;
+      return img;
+    } catch (_) { return null; }
+  }
   async load(url = 'assets/particles/manifest.json') {
     this.manifest = await (await fetch(url)).json();
-    const imgEntries = Object.entries(this.manifest.images || {});
-    // Alias missing
     const aliases = {
       IMAGE_DUST_PUFFS: 'IMAGE_DIRTSMALL',
       IMAGE_PROJECTILE: 'IMAGE_PROJECTILEPEA',
@@ -68,13 +79,6 @@ export class ParticleLibrary {
     for (const [k, v] of Object.entries(aliases)) {
       if (!this.manifest.images[k] && this.manifest.images[v]) this.manifest.images[k] = this.manifest.images[v];
     }
-    await Promise.all(Object.entries(this.manifest.images).map(async ([key, path]) => {
-      try {
-        const img = new Image();
-        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = path; });
-        this.images[key] = img;
-      } catch (_) {}
-    }));
     const preload = [
       'PARTICLE_PEASPLAT','PARTICLE_SNOWPEASPLAT','PARTICLE_PLANTING','PARTICLE_POWIE',
       'PARTICLE_DUST_SQUASH','PARTICLE_SODROLL','PARTICLE_MOWERCLOUD','PARTICLE_FUMECLOUD',
@@ -88,8 +92,9 @@ export class ParticleLibrary {
     if (this.defs[key]) return this.defs[key];
     const meta = this.manifest.particles[key];
     if (!meta) throw new Error('no particle ' + key);
-    const raw = await (await fetch(meta.file)).json();
+    const raw = await (await fetch(meta.file + (meta.file.includes('?')?'&':'?') + 'v=hd1')).json();
     for (const e of raw.emitters) {
+      if (e.image) await this.loadImage(e.image);
       e._img = e.image ? this.images[e.image] || null : null;
       e.particleFields = e.particleFields || [];
       e.systemFields = e.systemFields || [];
@@ -286,7 +291,8 @@ class Emitter {
       ctx.rotate(p.spin);
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
       if (brightness !== 1) ctx.filter = `brightness(${brightness})`;
-      const dw = frameW * scale, dh = frameH * scale;
+      // Source is 2×; destination in logical pixels
+      const dw = (frameW * scale) / ASSET_SCALE, dh = (frameH * scale) / ASSET_SCALE;
       ctx.drawImage(img, frame * frameW, 0, frameW, frameH, -dw / 2, -dh / 2, dw, dh);
       ctx.restore();
     }

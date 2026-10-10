@@ -82,3 +82,9 @@ Unrecoverable listed in GAPS.md (Scary Potter/Bowling incomplete in this Flash b
 - Flash Board.draw: `mSeedBank.Draw` then `mRenderManager.draw` → zombies/plants paint OVER seed bank.
 - Remake had HUD after entities (top-row zombies clipped by opaque bank). Fixed draw order; bank 401×78.
 - Cache: `?v=ui1`
+
+## HD + network (hd1) — 2026-10-10
+- Assets: 16.3 MB → **10.1 MB** (−38%). All rasters → **2× Lanczos WebP**; BGM 64 kbps mono; unused music dropped.
+- Canvas: DPR backing store; `imageSmoothingQuality=high`; sprites drawn at `natural/ASSET_SCALE`.
+- Load: title pack first (progress bar) → play pack (lazy reanim/particle images per def) → BGM deferred to first unlock.
+- Cache: `?v=hd1`

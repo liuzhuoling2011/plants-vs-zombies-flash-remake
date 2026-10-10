@@ -1,5 +1,8 @@
 // Recovered from FFDec Board.as / CPlant.as / Zombie.as / SeedPacket.as / Projectile.as
 export const BOARD_W = 540, BOARD_H = 405;
+// HD atlas scale: sprites authored at 2×, drawn at logical / ASSET_SCALE
+export const ASSET_SCALE = 2;
+export const ASSET_VER = 'hd1';
 // PVZApp.BOARD_OFFSET — bg drawn at -148 so lawn cells match grass
 export const BOARD_OFFSET = 148;
 // SeedBank.as mHeight — sits at y=0; lawn starts LAWN_YMIN=77 (bank overlaps top of row 0)
