@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>植物大战僵尸 · HTML5 重制 (4399/18012)</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; height: 100%; background: #1a1208;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      overflow: hidden; touch-action: none;
+    }
+    #wrap {
+      width: min(100vw, 960px); max-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 8px;
+    }
+    h1 { color: #e8d48b; font-size: 16px; margin: 0; font-weight: 600; text-align: center; }
+    #game {
+      background: #000; image-rendering: pixelated;
+      box-shadow: 0 8px 32px #000a; border-radius: 4px;
+      max-width: 100%; cursor: crosshair;
+    }
+    #loading { color: #ccc; font-size: 14px; }
+    .hint { color: #a09070; font-size: 12px; text-align: center; max-width: 540px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <h1>植物大战僵尸 · 给小朋友的 HTML5 版</h1>
+    <div id="loading">正在加载阳光与僵尸…</div>
+    <canvas id="game" width="540" height="405"></canvas>
+    <p class="hint">点卡片再点草地种植 · 点阳光收集 · 右上铲子可铲除<br/>Esc 回菜单 · 进度自动保存在本机</p>
+  </div>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
