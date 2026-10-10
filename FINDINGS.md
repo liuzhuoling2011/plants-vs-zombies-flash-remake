@@ -77,3 +77,8 @@ Unrecoverable listed in GAPS.md (Scary Potter/Bowling incomplete in this Flash b
 - PeaShooter.as: FindTargetAndFire sets anim_shooting rate 35 + shootingCounter 35; Fire when counter==1 (animTime≈0.48).
 - Zombie.as UpdateDamageStates: DropArm at body HP≤66%, DropHead at ≤33%; hide reanim tracks + PARTICLE_ZOMBIEARM/HEAD + limbs Foley.
 - Cache: `?v=combat2`
+
+## Seed bank z-order (ui1) — 2026-10-10
+- Flash Board.draw: `mSeedBank.Draw` then `mRenderManager.draw` → zombies/plants paint OVER seed bank.
+- Remake had HUD after entities (top-row zombies clipped by opaque bank). Fixed draw order; bank 401×78.
+- Cache: `?v=ui1`
