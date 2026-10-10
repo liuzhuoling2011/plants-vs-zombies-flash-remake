@@ -223,6 +223,7 @@ const state = {
   message: '',
   messageT: 0,
   paused: false,
+  speedMul: 1, // 1 | 2 | 3
   pointer: { x: 0, y: 0, down: false },
   readyFlash: 0,
 };
@@ -263,6 +264,7 @@ function initLevel(level) {
   state.messageT = 300;
   state.readyFlash = 180;
   state.paused = false;
+  state.speedMul = 1;
 
   const n = C.numSeedsInBank(level);
   state.packets = [];
@@ -412,7 +414,7 @@ function spawnZombie(type, row) {
 function pickZombieType(level, waveIndex, isFlag) {
   if (isFlag) return C.ZOMBIE.FLAG;
   const pool = [C.ZOMBIE.NORMAL];
-  if (level >= 3) pool.push(C.ZOMBIE.CONE, C.ZOMBIE.CONE);
+  if (level >= 4) pool.push(C.ZOMBIE.CONE, C.ZOMBIE.CONE); // L3: normal only (too hard with cones)
   if (level >= 6) pool.push(C.ZOMBIE.POLE);
   if (level >= 8) pool.push(C.ZOMBIE.BUCKET);
   if (level >= 11) pool.push(C.ZOMBIE.PAPER);
@@ -811,6 +813,30 @@ function packetRect(i) {
   const x = 78 + i * 54;
   return { x, y: 6, w: 50, h: 70 };
 }
+/** Top-right HUD: pause + speed (right of shovel 402..465) */
+function hudBtnRects() {
+  return {
+    pause: { x: 470, y: 4, w: 32, h: 30 },
+    speed: { x: 506, y: 4, w: 32, h: 30 },
+  };
+}
+function hitRect(x, y, r) {
+  return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
+function drawHudButton(r, label, active) {
+  roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+  ctx.fillStyle = active ? 'rgba(80,120,40,0.92)' : 'rgba(40,30,18,0.88)';
+  ctx.fill();
+  ctx.strokeStyle = active ? '#ce5' : '#c9a66b';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = '#ffe9a8';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.textBaseline = 'alphabetic';
+}
 
 function onPointer(x, y, isDown) {
   state.pointer.x = x; state.pointer.y = y;
@@ -870,6 +896,26 @@ function onPointer(x, y, isDown) {
   }
   if (state.scene !== 'playing') return;
 
+  // Top-right: pause / speed (usable while paused)
+  {
+    const btns = hudBtnRects();
+    if (hitRect(x, y, btns.pause)) {
+      state.paused = !state.paused;
+      playSfx('buttonclick');
+      if (state.paused) { state.message = '已暂停'; state.messageT = 90; }
+      else { state.message = '继续'; state.messageT = 60; }
+      return;
+    }
+    if (hitRect(x, y, btns.speed)) {
+      state.speedMul = state.speedMul >= 3 ? 1 : state.speedMul + 1;
+      playSfx('buttonclick');
+      state.message = `速度 ×${state.speedMul}`;
+      state.messageT = 80;
+      return;
+    }
+  }
+  if (state.paused) return; // only HUD buttons while paused
+
   // collect sun
   for (const s of state.suns) {
     if (s.collected) continue;
@@ -889,11 +935,16 @@ function onPointer(x, y, isDown) {
     return;
   }
 
-  // packets
+  // packets: same seed → deselect; other seed → switch
   for (let i = 0; i < state.packets.length; i++) {
     const r = packetRect(i);
     if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
       const p = state.packets[i];
+      if (state.cursor?.type === 'seed' && state.cursor.index === i) {
+        state.cursor = null;
+        playSfx('tap');
+        return;
+      }
       if (!p.active) { state.message = '还在冷却中…'; state.messageT = 80; return; }
       if (state.sun < C.SEED_COST[p.type]) { state.message = '阳光不够！'; state.messageT = 80; return; }
       state.cursor = { type: 'seed', seed: p.type, index: i };
@@ -933,7 +984,12 @@ document.addEventListener('keydown', (e) => {
     state.scene = 'menu';
     ensureBgm(); try { assets.bgm.pause(); assets.menuBgm.play(); } catch(_){}
   }
-  if (e.key === 'p' || e.key === 'P') state.paused = !state.paused;
+  if (e.key === 'p' || e.key === 'P' || e.key === ' ') {
+    if (state.scene === 'playing') { e.preventDefault(); state.paused = !state.paused; }
+  }
+  if ((e.key === '=' || e.key === '+') && state.scene === 'playing') {
+    state.speedMul = state.speedMul >= 3 ? 1 : state.speedMul + 1;
+  }
 });
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -1084,6 +1140,13 @@ function draw() {
   drawImg('shovel', 410, 8, 48, 48);
   if (state.cursor?.type === 'shovel') {
     ctx.strokeStyle = '#ff0'; ctx.lineWidth = 2; ctx.strokeRect(402, 0, 63, 65);
+  }
+
+  // Top-right: pause + speed-up
+  {
+    const btns = hudBtnRects();
+    drawHudButton(btns.pause, state.paused ? '▶' : '❚❚', state.paused);
+    drawHudButton(btns.speed, `×${state.speedMul}`, state.speedMul > 1);
   }
 
   // mowers — LawnMower.as: draw at (mPosX+4, mPosY); shadow at (mPosX-5, mPosY+30)
@@ -1253,6 +1316,23 @@ function draw() {
     ctx.strokeText('种植！', 270, 200); ctx.fillText('种植！', 270, 200);
   }
 
+
+  if (state.paused && state.scene === 'playing') {
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, C.BOARD_W, C.BOARD_H);
+    ctx.fillStyle = '#ffe9a8';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('已暂停', 270, 190);
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText('点右上角 ▶ 继续', 270, 222);
+    // Keep HUD buttons visible above dim — redraw them
+    const btns = hudBtnRects();
+    drawHudButton(btns.pause, '▶', true);
+    drawHudButton(btns.speed, `×${state.speedMul}`, state.speedMul > 1);
+  }
+
   if (state.scene === 'cutscene') {
     // dim
     if (state.cutscene.kind === 'sod') {
@@ -1326,7 +1406,7 @@ function frame(now) {
   last = now;
   if (state.scene === 'cutscene') updateCutscene();
   if (state.scene === 'playing' && !state.paused) {
-    acc += dt * C.TICK_HZ;
+    acc += dt * C.TICK_HZ * (state.speedMul || 1);
     if (acc > 5) acc = 5;
     const steps = Math.floor(acc);
     if (steps > 0) { updatePlaying(steps); acc -= steps; }
