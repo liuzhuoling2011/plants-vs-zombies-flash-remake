@@ -1,4 +1,7 @@
+// Reanim build reanim2
 import * as C from './constants.js';
+import { ReanimLibrary } from './reanim.js';
+import * as Ent from './entities.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -20,6 +23,7 @@ function fitCanvas() {
 window.addEventListener('resize', fitCanvas);
 
 const assets = { img: {}, sfx: {}, music: {} };
+const reanimLib = new ReanimLibrary();
 const loadImg = (src) => new Promise((res, rej) => {
   const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src;
 });
@@ -53,6 +57,8 @@ async function loadAll() {
   };
   for (const id of C.SEED_IMG) imgs['p_' + id] = `assets/plants/${id}.png`;
   await Promise.all(Object.entries(imgs).map(async ([k, v]) => { try { assets.img[k] = await loadImg(v); } catch(e) { console.warn('img', v, e); } }));
+  const _ld=document.getElementById('loading'); if (_ld) _ld.textContent = '正在加载骨骼动画（Reanimator）…';
+  await reanimLib.load('assets/reanim/manifest.json');
   const AC = window.AudioContext || window.webkitAudioContext;
   assets.ac = AC ? new AC() : null;
   assets.buffers = {};
@@ -165,7 +171,8 @@ function initLevel(level) {
     });
   }
   state.mowers = rowsAllowed().map((r) => ({
-    row: r, x: 10, dead: false, active: false, speed: 0,
+    row: r, x: -20, triggered: false, dead: false,
+    reanim: Ent.createMowerReanim(reanimLib),
   }));
 
   try { assets.menuBgm.pause(); assets.loseBgm.pause(); assets.winBgm.pause(); } catch(_){}
@@ -192,13 +199,16 @@ function plantAt(col, row, seed) {
   const launch = (seed === C.SEED.SUNFLOWER || seed === C.SEED.SUNSHROOM) ? 2500
     : (seed === C.SEED.PEASHOOTER || seed === C.SEED.SNOWPEA || seed === C.SEED.REPEATER || seed === C.SEED.PUFFSHROOM || seed === C.SEED.FUMESHROOM) ? 150
     : 2500;
-  state.plants.push({
+  const plant = {
     seed, col, row,
     x: C.gridToPixelX(col), y: C.gridToPixelY(row),
     hp, maxHp: hp,
     launch, launchCD: randInt(0, Math.min(launch, 300)),
     dead: false, age: 0, state: 0, flash: 0,
-  });
+    reanim: null,
+  };
+  plant.reanim = Ent.createPlantReanim(reanimLib, seed);
+  state.plants.push(plant);
   playSfx('plant');
   return true;
 }
@@ -218,15 +228,17 @@ function spawnZombie(type, row) {
   if (type === C.ZOMBIE.FOOTBALL) { vel = rand(0.66, 0.68); helm = 1400; }
   if (type === C.ZOMBIE.DOOR) { shield = 1100; }
   if (type === C.ZOMBIE.PAPER) { shield = 150; }
-  state.zombies.push({
+  const z = {
     type, row,
     x: C.BOARD_W - 13 + Math.random() * 27,
     y: C.gridToPixelY(row),
     vel, baseVel: vel,
     hp: 270, maxHp: 270, helm, shield,
     eating: false, dead: false, chilled: 0, age: 0, bob: Math.random() * Math.PI * 2,
-    img, phase: 0,
-  });
+    img, phase: 0, reanim: null, _wasEating: false, _dying: false,
+  };
+  z.reanim = Ent.createZombieReanim(reanimLib, type);
+  state.zombies.push(z);
   if (Math.random() < 0.25) playSfx('groan', 0.4);
 }
 
@@ -270,6 +282,7 @@ function spawnSun(x, y, fromPlant) {
     vx: fromPlant ? rand(-0.4, 0.4) : 0,
     vy: fromPlant ? -1.2 : 1.2,
     life: 800, value: 25, collected: false, fromPlant: !!fromPlant,
+    reanim: Ent.createSunReanim(reanimLib),
   });
 }
 
@@ -294,9 +307,13 @@ function damageZombie(z, dmg, freeze) {
   }
   if (dmg > 0) z.hp -= dmg;
   if (freeze) z.chilled = Math.max(z.chilled, 300);
-  if (z.hp <= 0) {
-    z.dead = true;
+  if (z.hp <= 0 && !z._dying) {
     playSfx('limbs', 0.3);
+    if (z.reanim && z.reanim.mDefinition.trackNameMap['anim_death']) {
+      Ent.zombiePlayDeath(z, reanimLib);
+    } else {
+      z.dead = true;
+    }
   }
 }
 
@@ -336,6 +353,10 @@ function updatePlaying(dtTicks) {
       p.age++;
       if (p.flash > 0) p.flash--;
       p.launchCD--;
+      if (p.reanim) {
+        p.reanim.body.update(1);
+        Ent.updateWallnutCrack(p);
+      }
       const seed = p.seed;
       if (seed === C.SEED.SUNFLOWER || seed === C.SEED.SUNSHROOM) {
         if (p.launchCD <= 0) {
@@ -346,8 +367,8 @@ function updatePlaying(dtTicks) {
         const foe = state.zombies.find((z) => !z.dead && z.row === p.row && z.x > p.x && z.x < C.BOARD_W + 40);
         if (foe && p.launchCD <= 0) {
           addPea(p, seed === C.SEED.SNOWPEA);
+          Ent.plantPlayShoot(p);
           if (seed === C.SEED.REPEATER) {
-            // second pea shortly
             p._double = 20;
           }
           p.launchCD = p.launch - Math.random() * 15;
@@ -424,8 +445,13 @@ function updatePlaying(dtTicks) {
       z.bob += 0.08;
       if (z.chilled > 0) z.chilled--;
       const plant = state.plants.find((p) => !p.dead && p.row === z.row && z.x < p.x + 45 && z.x + 40 > p.x + 10);
+      if (z._dying) {
+        if (z.reanim) z.reanim.update(1);
+        continue;
+      }
       if (plant && !(plant.seed === C.SEED.CHERRYBOMB || plant.seed === C.SEED.SQUASH)) {
         z.eating = true;
+        Ent.zombieSetEating(z, true);
         if (z.age % C.TICKS_BETWEEN_EATS === 0) {
           if (!(z.chilled > 0 && z.age % 2 === 1)) {
             plant.hp -= C.TICKS_BETWEEN_EATS;
@@ -438,12 +464,22 @@ function updatePlaying(dtTicks) {
           }
         }
       } else {
+        Ent.zombieSetEating(z, false);
         z.eating = false;
         let spd = z.vel;
-        if (z.chilled > 0) spd *= C.CHILLED_FACTOR;
-        // Prefer reanim ground velocity; fallback to PickRandomSpeed values
+        if (z.reanim) {
+          const gv = z.reanim.getTrackVelocity('_ground');
+          if (gv && Math.abs(gv) > 0.01) spd = Math.abs(gv);
+        }
+        if (z.chilled > 0) {
+          spd *= C.CHILLED_FACTOR;
+          if (z.reanim) z.reanim.overrideRGB = [0.6, 0.85, 1];
+        } else if (z.reanim) {
+          z.reanim.overrideRGB = [1, 1, 1];
+        }
         z.x -= spd;
       }
+      if (z.reanim) z.reanim.update(1);
       if (z.x < -40) {
         // house entered
         state.scene = 'lost';
@@ -480,6 +516,7 @@ function updatePlaying(dtTicks) {
       } else {
         if (s.y < s.ty) s.y += s.vy;
       }
+      if (s.reanim) s.reanim.update(1);
       if (s.life <= 0) s.collected = true;
     }
     state.suns = state.suns.filter((s) => !s.collected);
@@ -681,48 +718,51 @@ function draw() {
   // mowers
   for (const m of state.mowers) {
     if (m.dead) continue;
-    drawImg('lawnmower', m.x, C.gridToPixelY(m.row) + 20, 50, 40);
+    if (m.reanim) {
+      m.reanim.update(1);
+      m.reanim.draw(ctx, m.x, C.gridToPixelY(m.row) + 10);
+    } else {
+      drawImg('lawnmower', m.x, C.gridToPixelY(m.row) + 20, 50, 40);
+    }
   }
 
-  // plants
+  // plants (reanimator)
   for (const p of state.plants) {
-    const key = 'p_' + C.SEED_IMG[p.seed];
-    const im = assets.img[key];
-    const bounce = Math.sin(p.age / 20) * 1.5;
-    if (p.flash) ctx.globalAlpha = 0.6;
-    if (im) {
-      const iw = im.width, ih = im.height;
-      const scale = Math.min(54 / iw, 67 / ih) * 1.15;
-      const dw = iw * scale, dh = ih * scale;
-      ctx.drawImage(im, p.x + (54 - dw) / 2, p.y + 67 - dh - 4 + bounce, dw, dh);
+    ctx.save();
+    if (p.flash) ctx.globalAlpha = 0.55;
+    if (p.reanim) {
+      // Flash draws reanim at plant mX,mY = grid pixel
+      p.reanim.body.draw(ctx, p.x, p.y);
     } else {
-      ctx.fillStyle = '#2a4'; ctx.fillRect(p.x + 8, p.y + 20, 40, 40);
+      const key = 'p_' + C.SEED_IMG[p.seed];
+      const im = assets.img[key];
+      if (im) ctx.drawImage(im, p.x + 5, p.y + 10, 44, 44);
     }
-    ctx.globalAlpha = 1;
+    ctx.restore();
     if (p.seed === C.SEED.WALLNUT && p.hp < p.maxHp) {
       const r = p.hp / p.maxHp;
       ctx.fillStyle = '#0008'; ctx.fillRect(p.x + 8, p.y + 60, 40, 4);
       ctx.fillStyle = r > 0.33 ? '#6c3' : '#c33';
       ctx.fillRect(p.x + 8, p.y + 60, 40 * r, 4);
     }
-    if (p.seed === C.SEED.CHOMPER && p.state === 1) {
-      ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('消化中', p.x + 27, p.y + 12);
-    }
   }
 
-  // zombies
+  // zombies (reanimator)
   for (const z of state.zombies) {
-    const bob = Math.sin(z.bob) * 2;
-    const im = assets.img[z.img] || assets.img.zNormal;
-    if (z.chilled > 0) ctx.filter = 'hue-rotate(160deg) saturate(1.4)';
-    if (im) ctx.drawImage(im, z.x, z.y + bob - 10, 70, 88);
-    else { ctx.fillStyle = '#454'; ctx.fillRect(z.x, z.y, 40, 70); }
-    ctx.filter = 'none';
-    // tiny HP
+    if (z.reanim) {
+      if (z.chilled > 0) z.reanim.overrideRGB = [0.55, 0.8, 1];
+      else z.reanim.overrideRGB = [1, 1, 1];
+      z.reanim.draw(ctx, z.x, z.y);
+    } else {
+      const bob = Math.sin(z.bob) * 2;
+      const im = assets.img[z.img] || assets.img.zNormal;
+      if (z.chilled > 0) ctx.filter = 'hue-rotate(160deg) saturate(1.4)';
+      if (im) ctx.drawImage(im, z.x, z.y + bob - 10, 70, 88);
+      ctx.filter = 'none';
+    }
     const total = z.maxHp + (z.helm || 0) + (z.shield || 0);
     const cur = Math.max(0, z.hp) + Math.max(0, z.helm || 0) + Math.max(0, z.shield || 0);
-    if (cur < total) {
+    if (cur < total && !z._dying) {
       ctx.fillStyle = '#0008'; ctx.fillRect(z.x + 10, z.y - 6, 40, 3);
       ctx.fillStyle = '#c33'; ctx.fillRect(z.x + 10, z.y - 6, 40 * (cur / total), 3);
     }
@@ -735,8 +775,12 @@ function draw() {
 
   // suns
   for (const s of state.suns) {
-    const pulse = 1 + Math.sin(state.tick / 10) * 0.05;
-    drawImg('sun', s.x, s.y, 40 * pulse, 40 * pulse);
+    if (s.reanim) {
+      s.reanim.draw(ctx, s.x, s.y);
+    } else {
+      const pulse = 1 + Math.sin(state.tick / 10) * 0.05;
+      drawImg('sun', s.x, s.y, 40 * pulse, 40 * pulse);
+    }
   }
 
   // seed bank HUD
@@ -850,6 +894,7 @@ function draw() {
 let last = performance.now();
 let acc = 0;
 function frame(now) {
+  window.__PVZ = { get state(){return state;}, assets, reanimLib, C };
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (state.scene === 'playing' && !state.paused) {
